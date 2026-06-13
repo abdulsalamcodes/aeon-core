@@ -2,7 +2,7 @@
 
 The greenfield Aeon core from [`schooler-be/docs/architecture/ARCHITECTURE.md`](../schooler-be/docs/architecture/ARCHITECTURE.md) — **Phase 0 foundations**. A Postgres + Drizzle, RLS-isolated, modular monolith with a transactional outbox and a worker tier. The legacy Express/Mongo backend keeps running; features are ported here module by module (strangler).
 
-> Status: **Phases 0–2** complete on the new stack. Compiles against Postgres + Redis; typecheck, lint, and unit tests are green. Phase 0 = tenant/RLS + outbox + worker (subjects). Phase 1 = identity (accounts/persons/memberships/roles, scrypt+JWT auth, `/v1/auth/login`+`/me`). **Phase 2 = People + Academics**: terms, classes, enrollments, guardianships, attendance, grades — and the headline **ripple**: enrolling a student emits `StudentEnrolled`, which the Academics consumer reacts to by seeding the attendance register, with no module calling another directly. Phase 3 (Finance + ledger) is next.
+> Status: **Phases 0–3** complete on the new stack. Compiles against Postgres + Redis; typecheck, lint, and unit tests are green. Phase 0 = tenant/RLS + outbox + worker (subjects). Phase 1 = identity (accounts/persons/memberships/roles, scrypt+JWT auth, `/v1/auth/login`+`/me`). Phase 2 = People + Academics (terms/classes/enrollments/guardianships/attendance/grades). **Phase 3 = Finance + ledger**: an append-only, multi-currency ledger (`amountMinor` + ISO currency, never floats), idempotent payments, and a `PaymentProvider` abstraction (Paystack/Flutterwave/Stripe-ready). The **ripple now spans modules**: `StudentEnrolled` makes Academics seed the register AND Finance bill the term's default fee — neither calling the other. Phase 4 (Workflow / Notifications / Platform) is next.
 
 ## What's here
 
@@ -16,6 +16,8 @@ The greenfield Aeon core from [`schooler-be/docs/architecture/ARCHITECTURE.md`](
 | Auth: password (scrypt), JWT (jose), middleware | `src/auth/*` | ADR-4 |
 | **People** (enrollment → `StudentEnrolled`, guardianship) | `src/modules/people/*` | ADR-4/5 |
 | **Academics** (attendance, grades, enrolment ripple) | `src/modules/academics/*` | ADR-5 |
+| **Finance** (fee structures, append-only ledger, payments) | `src/modules/finance/*` | ADR-8 |
+| `PaymentProvider` abstraction (stub + registry) | `src/payments/*` | ADR-11 |
 | Transactional outbox + relay | `src/events/*` | ADR-5 |
 | Event bus (Redis Streams) | `src/events/bus.ts` | ADR-5 |
 | Worker tier | `src/worker/index.ts` | ADR-6 |

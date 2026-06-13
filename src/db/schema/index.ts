@@ -11,5 +11,7 @@ export * from "./enrollments.js";
 export * from "./guardianships.js";
 export * from "./attendance.js";
 export * from "./grades.js";
+export * from "./feeStructures.js";
+export * from "./ledgerEntries.js";
 export * from "./subjects.js";
 export * from "./outbox.js";

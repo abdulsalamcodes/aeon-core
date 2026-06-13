@@ -8,8 +8,11 @@ import { authRouter } from "./modules/identity/index.js";
 import { subjectRouter } from "./modules/subjects/index.js";
 import { peopleRouter } from "./modules/people/index.js";
 import { academicsRouter } from "./modules/academics/index.js";
+import { financeRouter } from "./modules/finance/index.js";
+import { registerDefaultProviders } from "./payments/index.js";
 
 export function createApp(): Express {
+  registerDefaultProviders();
   const app = express();
 
   app.use(pinoHttp({ logger }));
@@ -27,6 +30,7 @@ export function createApp(): Express {
   app.use("/v1/subjects", subjectRouter);
   app.use("/v1/people", peopleRouter);
   app.use("/v1/academics", academicsRouter);
+  app.use("/v1/finance", financeRouter);
 
   // Central error handler — maps HttpError to its status.
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {

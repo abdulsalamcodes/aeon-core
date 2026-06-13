@@ -2,7 +2,9 @@ import { startRelay } from "../events/relay.js";
 import { subscribe } from "../events/bus.js";
 import { logger } from "../config/logger.js";
 import { STUDENT_ENROLLED } from "../modules/people/index.js";
-import { onStudentEnrolled } from "../modules/academics/index.js";
+import { onStudentEnrolled as academicsOnEnrolled } from "../modules/academics/index.js";
+import { onStudentEnrolled as financeOnEnrolled } from "../modules/finance/index.js";
+import { registerDefaultProviders } from "../payments/index.js";
 
 /**
  * Worker tier (ADR-6): runs the outbox relay and event consumers. Separate
@@ -10,6 +12,8 @@ import { onStudentEnrolled } from "../modules/academics/index.js";
  * billing) never blocks request latency.
  */
 function main() {
+  registerDefaultProviders();
+
   // 1) Relay: outbox → bus.
   startRelay(1000);
 
@@ -19,7 +23,9 @@ function main() {
   void subscribe("core-workers", `worker-${process.pid}`, async (evt) => {
     switch (evt.eventType) {
       case STUDENT_ENROLLED:
-        await onStudentEnrolled(evt.payload);
+        // Both modules react independently to the same event (ADR-5).
+        await academicsOnEnrolled(evt.payload); // seed attendance register
+        await financeOnEnrolled(evt.payload); // bill the term's default fee
         break;
       case "SubjectCreated":
         logger.info({ subjectId: evt.payload.id, schoolId: evt.schoolId }, "reacted to SubjectCreated");
