@@ -2,22 +2,32 @@
 
 The greenfield Aeon core from [`schooler-be/docs/architecture/ARCHITECTURE.md`](../schooler-be/docs/architecture/ARCHITECTURE.md) — **Phase 0 foundations**. A Postgres + Drizzle, RLS-isolated, modular monolith with a transactional outbox and a worker tier. The legacy Express/Mongo backend keeps running; features are ported here module by module (strangler).
 
-> Status: **Phase 0 skeleton**. It compiles and runs against a real Postgres + Redis. One trivial module — **subjects** — is wired end-to-end (schema → RLS → service → routes → outbox → worker) to prove the stack. Phase 1 (identity + org graph) builds on this.
+> Status: **Phase 1 (Identity + Org graph) on top of Phase 0**. Compiles and runs against Postgres + Redis; typecheck, lint, and unit tests are green. The **subjects** module proves the tenant/outbox/worker stack; the **identity** module adds accounts, persons, memberships, roles, staff profiles, password auth (scrypt), JWT (jose), and `/v1/auth/login` + `/v1/auth/me` resolving through memberships. Phase 2 (People + Academics) builds on this.
 
 ## What's here
 
 | Concern | Where | ADR |
 |---|---|---|
 | Postgres client (pooled) | `src/db/client.ts` | ADR-1 |
-| Schema (org → school → subjects, outbox) | `src/db/schema/*` | ADR-1/2/5 |
+| Schema (org → school, identity, subjects, outbox) | `src/db/schema/*` | ADR-1/2/4/5 |
 | Migrations incl. **RLS policies** | `src/db/migrations/*.sql` | ADR-2 |
-| Tenant context (RLS bound per request) | `src/tenant/*` | ADR-2 |
+| Tenant context (RLS bound per request) + login escape | `src/tenant/*` | ADR-2/4 |
+| **Identity** (accounts/persons/memberships/roles/staff) | `src/modules/identity/*` | ADR-4 |
+| Auth: password (scrypt), JWT (jose), middleware | `src/auth/*` | ADR-4 |
 | Transactional outbox + relay | `src/events/*` | ADR-5 |
 | Event bus (Redis Streams) | `src/events/bus.ts` | ADR-5 |
 | Worker tier | `src/worker/index.ts` | ADR-6 |
 | Subjects module (vertical slice) | `src/modules/subjects/*` | ADR-3 |
 | Module-boundary lint | `eslint.config.js` | ADR-3 |
-| CI (Postgres + Redis, migrate, test) | `.github/workflows/core-ci.yml` | — |
+| CI (Postgres + Redis, migrate, test) | `.github/workflows/ci.yml` | — |
+
+## Identity & login (Phase 1)
+
+One **account** = one human login (global). A **person** holds the PII (tenant-owned); **memberships** bind an account/person to a `school × role × scope`, so one human can be a teacher at one school and a guardian at another. `staff_profiles` carry HR data.
+
+`POST /v1/auth/login` verifies the account, then reads its memberships across schools via the `app.current_account` RLS escape (a principal may always read its own memberships before a tenant is chosen), and mints a JWT bound to the chosen membership. `tenantResolver` reads that JWT to bind RLS for every subsequent request. `GET /v1/auth/me` returns the principal's active membership + all memberships.
+
+`provisionService.addPrincipal()` is the onboarding primitive (account + person + membership in one go); `ensureSystemRoles()` seeds the system roles.
 
 ## How tenant isolation works (the important bit)
 
@@ -61,4 +71,5 @@ curl -XPOST localhost:8080/v1/subjects \
 
 - Migrations here are hand-written for the skeleton; `npm run db:generate` regenerates canonical migrations from `src/db/schema` going forward.
 - The relay/worker should connect as a `BYPASSRLS` role so it can drain every tenant's outbox (see comment in `0001_rls.sql`).
-- Next: **Phase 1 — Identity + Org graph** (`account` / `person` / `membership` / `role`), porting auth so the three portals resolve through memberships.
+- `accounts` is global (no RLS) — protected at the app/role layer; login happens before a tenant exists.
+- Next: **Phase 2 — People + Academics** (enrollment, guardianship, attendance, grades; first real cross-module events like `StudentEnrolled → assign fees`), then port the web portals to authenticate against `/v1/auth`.

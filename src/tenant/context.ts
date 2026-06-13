@@ -38,3 +38,16 @@ export async function withTenant<T>(fn: (tx: Tx) => Promise<T>): Promise<T> {
     return fn(tx);
   });
 }
+
+/**
+ * Login-only context (ADR-4). Before any tenant is chosen, an authenticating
+ * account may read its OWN memberships across schools. Sets `app.current_account`
+ * (transaction-local) which the membership RLS policy allows. No school/org is
+ * bound, so this can ONLY see rows belonging to this account.
+ */
+export async function withAccount<T>(accountId: string, fn: (tx: Tx) => Promise<T>): Promise<T> {
+  return db.transaction(async (tx) => {
+    await tx.execute(raw`select set_config('app.current_account', ${accountId}, true)`);
+    return fn(tx);
+  });
+}

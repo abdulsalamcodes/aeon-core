@@ -37,8 +37,17 @@ export default tseslint.config(
     },
   },
   {
-    // The db + tenant layers legitimately own the client; exempt them.
-    files: ["src/db/**/*.ts", "src/tenant/**/*.ts", "src/events/**/*.ts"],
+    // Foundational layers legitimately own the db client:
+    //  - db / tenant / events: infrastructure
+    //  - auth + identity module: own the GLOBAL (non-tenant) accounts &
+    //    memberships, which are looked up before any tenant is chosen (ADR-4).
+    files: [
+      "src/db/**/*.ts",
+      "src/tenant/**/*.ts",
+      "src/events/**/*.ts",
+      "src/auth/**/*.ts",
+      "src/modules/identity/**/*.ts",
+    ],
     rules: { "no-restricted-imports": "off" },
   },
 );

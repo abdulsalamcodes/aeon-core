@@ -29,12 +29,3 @@ export function tenantResolver(req: Request, res: Response, next: NextFunction) 
   };
   runWithTenant(ctx, () => next());
 }
-
-declare global {
-  // eslint-disable-next-line @typescript-eslint/no-namespace
-  namespace Express {
-    interface Request {
-      auth?: { schoolId: string; orgId: string; orgWide?: boolean };
-    }
-  }
-}

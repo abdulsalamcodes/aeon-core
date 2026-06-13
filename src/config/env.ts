@@ -13,6 +13,10 @@ const schema = z.object({
   // Redis — cache, queue, and event streams (ADR-5/ADR-6).
   REDIS_URL: z.string().default("redis://localhost:6379"),
 
+  // Auth — access-token signing secret + lifetime (ADR-4).
+  JWT_SECRET: z.string().min(16).default("dev-only-insecure-secret-change-me"),
+  JWT_TTL: z.string().default("15m"),
+
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
 });
 
