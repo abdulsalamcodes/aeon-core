@@ -6,6 +6,8 @@ import { tenantResolver } from "./tenant/middleware.js";
 import { HttpError } from "./lib/http-error.js";
 import { authRouter } from "./modules/identity/index.js";
 import { subjectRouter } from "./modules/subjects/index.js";
+import { peopleRouter } from "./modules/people/index.js";
+import { academicsRouter } from "./modules/academics/index.js";
 
 export function createApp(): Express {
   const app = express();
@@ -23,6 +25,8 @@ export function createApp(): Express {
   // Everything else: authenticate → bind tenant (RLS) → handlers.
   app.use("/v1", authenticate, tenantResolver);
   app.use("/v1/subjects", subjectRouter);
+  app.use("/v1/people", peopleRouter);
+  app.use("/v1/academics", academicsRouter);
 
   // Central error handler — maps HttpError to its status.
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {

@@ -2,7 +2,7 @@
 
 The greenfield Aeon core from [`schooler-be/docs/architecture/ARCHITECTURE.md`](../schooler-be/docs/architecture/ARCHITECTURE.md) — **Phase 0 foundations**. A Postgres + Drizzle, RLS-isolated, modular monolith with a transactional outbox and a worker tier. The legacy Express/Mongo backend keeps running; features are ported here module by module (strangler).
 
-> Status: **Phase 1 (Identity + Org graph) on top of Phase 0**. Compiles and runs against Postgres + Redis; typecheck, lint, and unit tests are green. The **subjects** module proves the tenant/outbox/worker stack; the **identity** module adds accounts, persons, memberships, roles, staff profiles, password auth (scrypt), JWT (jose), and `/v1/auth/login` + `/v1/auth/me` resolving through memberships. Phase 2 (People + Academics) builds on this.
+> Status: **Phases 0–2** complete on the new stack. Compiles against Postgres + Redis; typecheck, lint, and unit tests are green. Phase 0 = tenant/RLS + outbox + worker (subjects). Phase 1 = identity (accounts/persons/memberships/roles, scrypt+JWT auth, `/v1/auth/login`+`/me`). **Phase 2 = People + Academics**: terms, classes, enrollments, guardianships, attendance, grades — and the headline **ripple**: enrolling a student emits `StudentEnrolled`, which the Academics consumer reacts to by seeding the attendance register, with no module calling another directly. Phase 3 (Finance + ledger) is next.
 
 ## What's here
 
@@ -14,6 +14,8 @@ The greenfield Aeon core from [`schooler-be/docs/architecture/ARCHITECTURE.md`](
 | Tenant context (RLS bound per request) + login escape | `src/tenant/*` | ADR-2/4 |
 | **Identity** (accounts/persons/memberships/roles/staff) | `src/modules/identity/*` | ADR-4 |
 | Auth: password (scrypt), JWT (jose), middleware | `src/auth/*` | ADR-4 |
+| **People** (enrollment → `StudentEnrolled`, guardianship) | `src/modules/people/*` | ADR-4/5 |
+| **Academics** (attendance, grades, enrolment ripple) | `src/modules/academics/*` | ADR-5 |
 | Transactional outbox + relay | `src/events/*` | ADR-5 |
 | Event bus (Redis Streams) | `src/events/bus.ts` | ADR-5 |
 | Worker tier | `src/worker/index.ts` | ADR-6 |
