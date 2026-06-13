@@ -3,8 +3,13 @@ import { subscribe } from "../events/bus.js";
 import { logger } from "../config/logger.js";
 import { STUDENT_ENROLLED } from "../modules/people/index.js";
 import { onStudentEnrolled as academicsOnEnrolled } from "../modules/academics/index.js";
-import { onStudentEnrolled as financeOnEnrolled } from "../modules/finance/index.js";
+import { onStudentEnrolled as financeOnEnrolled, PAYMENT_RECORDED } from "../modules/finance/index.js";
+import {
+  onStudentEnrolled as notifyOnEnrolled,
+  onPaymentRecorded as notifyOnPayment,
+} from "../modules/notifications/index.js";
 import { registerDefaultProviders } from "../payments/index.js";
+import { registerDefaultChannels } from "../notifications/index.js";
 
 /**
  * Worker tier (ADR-6): runs the outbox relay and event consumers. Separate
@@ -13,6 +18,7 @@ import { registerDefaultProviders } from "../payments/index.js";
  */
 function main() {
   registerDefaultProviders();
+  registerDefaultChannels();
 
   // 1) Relay: outbox → bus.
   startRelay(1000);
@@ -23,9 +29,13 @@ function main() {
   void subscribe("core-workers", `worker-${process.pid}`, async (evt) => {
     switch (evt.eventType) {
       case STUDENT_ENROLLED:
-        // Both modules react independently to the same event (ADR-5).
+        // Three modules react independently to one event (ADR-5 ripple).
         await academicsOnEnrolled(evt.payload); // seed attendance register
         await financeOnEnrolled(evt.payload); // bill the term's default fee
+        await notifyOnEnrolled(evt.payload); // SMS the guardian
+        break;
+      case PAYMENT_RECORDED:
+        await notifyOnPayment(evt.payload); // SMS a receipt
         break;
       case "SubjectCreated":
         logger.info({ subjectId: evt.payload.id, schoolId: evt.schoolId }, "reacted to SubjectCreated");

@@ -56,7 +56,7 @@ export const financeService = {
 
   /** Assigns a fee to a student = a DEBIT ledger entry (ADR-8). Emits FeeAssigned. */
   async assignFee(input: z.infer<typeof assignFeeInput>): Promise<LedgerEntry> {
-    const { schoolId } = currentTenant();
+    const { schoolId, orgId } = currentTenant();
     return withTenant(async (tx) => {
       const [fee] = await tx
         .select()
@@ -84,7 +84,7 @@ export const financeService = {
         aggregate: "ledger",
         aggregateId: entry.id,
         eventType: FEE_ASSIGNED,
-        payload: { studentId: input.studentId, termId: fee.termId, amountMinor: fee.amountMinor, currency: fee.currency },
+        payload: { studentId: input.studentId, termId: fee.termId, amountMinor: fee.amountMinor, currency: fee.currency, schoolId, orgId },
       });
       return entry;
     });
@@ -96,7 +96,7 @@ export const financeService = {
    * entry. Returns the entry; on a duplicate key it returns the existing one.
    */
   async recordPayment(input: z.infer<typeof recordPaymentInput>): Promise<LedgerEntry> {
-    const { schoolId } = currentTenant();
+    const { schoolId, orgId } = currentTenant();
     return withTenant(async (tx) => {
       const inserted = await tx
         .insert(ledgerEntries)
@@ -130,7 +130,7 @@ export const financeService = {
           aggregate: "ledger",
           aggregateId: entry.id,
           eventType: PAYMENT_RECORDED,
-          payload: { studentId: input.studentId, termId: input.termId, amountMinor: input.amountMinor, currency: input.currency },
+          payload: { studentId: input.studentId, termId: input.termId, amountMinor: input.amountMinor, currency: input.currency, schoolId, orgId },
         });
       }
       return entry;

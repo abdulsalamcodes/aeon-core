@@ -13,5 +13,7 @@ export * from "./attendance.js";
 export * from "./grades.js";
 export * from "./feeStructures.js";
 export * from "./ledgerEntries.js";
+export * from "./notifications.js";
+export * from "./workflows.js";
 export * from "./subjects.js";
 export * from "./outbox.js";

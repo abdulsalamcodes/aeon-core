@@ -2,7 +2,9 @@
 
 The greenfield Aeon core from [`schooler-be/docs/architecture/ARCHITECTURE.md`](../schooler-be/docs/architecture/ARCHITECTURE.md) — **Phase 0 foundations**. A Postgres + Drizzle, RLS-isolated, modular monolith with a transactional outbox and a worker tier. The legacy Express/Mongo backend keeps running; features are ported here module by module (strangler).
 
-> Status: **Phases 0–3** complete on the new stack. Compiles against Postgres + Redis; typecheck, lint, and unit tests are green. Phase 0 = tenant/RLS + outbox + worker (subjects). Phase 1 = identity (accounts/persons/memberships/roles, scrypt+JWT auth, `/v1/auth/login`+`/me`). Phase 2 = People + Academics (terms/classes/enrollments/guardianships/attendance/grades). **Phase 3 = Finance + ledger**: an append-only, multi-currency ledger (`amountMinor` + ISO currency, never floats), idempotent payments, and a `PaymentProvider` abstraction (Paystack/Flutterwave/Stripe-ready). The **ripple now spans modules**: `StudentEnrolled` makes Academics seed the register AND Finance bill the term's default fee — neither calling the other. Phase 4 (Workflow / Notifications / Platform) is next.
+> Status: **Phases 0–4 complete** on the new stack. `npm run build` compiles to `dist/`; typecheck, lint, and 20 unit tests are green. Phase 0 = tenant/RLS + outbox + worker. Phase 1 = identity (accounts/persons/memberships/roles, scrypt+JWT auth). Phase 2 = People + Academics (enrolment + attendance/grades). Phase 3 = Finance (append-only multi-currency ledger, idempotent payments, `PaymentProvider` abstraction). **Phase 4 = Workflow + Notifications**: a reusable approval engine (definitions → instances → tasks, emits `WorkflowCompleted`) and an event-driven, SMS-first notification service with a pluggable `Channel` abstraction.
+>
+> The **enrolment ripple now spans three modules from one event**: `StudentEnrolled` → Academics seeds the attendance register, Finance bills the term's default fee, and Notifications SMSes the guardian — none calling another directly (ADR-5). This is the Rippling-style "system-of-record change ripples outward" thesis, working end-to-end.
 
 ## What's here
 
@@ -18,6 +20,9 @@ The greenfield Aeon core from [`schooler-be/docs/architecture/ARCHITECTURE.md`](
 | **Academics** (attendance, grades, enrolment ripple) | `src/modules/academics/*` | ADR-5 |
 | **Finance** (fee structures, append-only ledger, payments) | `src/modules/finance/*` | ADR-8 |
 | `PaymentProvider` abstraction (stub + registry) | `src/payments/*` | ADR-11 |
+| **Notifications** (event-driven, SMS-first) | `src/modules/notifications/*` | ADR-11 |
+| `Channel` abstraction (sms/whatsapp/email) | `src/notifications/*` | ADR-11 |
+| **Workflow** (approval engine: definitions/instances/tasks) | `src/modules/workflow/*` | ADR-10 |
 | Transactional outbox + relay | `src/events/*` | ADR-5 |
 | Event bus (Redis Streams) | `src/events/bus.ts` | ADR-5 |
 | Worker tier | `src/worker/index.ts` | ADR-6 |
@@ -76,4 +81,6 @@ curl -XPOST localhost:8080/v1/subjects \
 - Migrations here are hand-written for the skeleton; `npm run db:generate` regenerates canonical migrations from `src/db/schema` going forward.
 - The relay/worker should connect as a `BYPASSRLS` role so it can drain every tenant's outbox (see comment in `0001_rls.sql`).
 - `accounts` is global (no RLS) — protected at the app/role layer; login happens before a tenant exists.
-- Next: **Phase 2 — People + Academics** (enrollment, guardianship, attendance, grades; first real cross-module events like `StudentEnrolled → assign fees`), then port the web portals to authenticate against `/v1/auth`.
+- Remaining Phase 4 tail (not yet built): SaaS **billing/plans**, a **public API + outbound webhooks** surface, and a **read replica** for reporting.
+- Biggest remaining integration: **port the web portals** (`schooler-web`) to authenticate against `/v1/auth` and read/write the new core, then cut over from the legacy Express/Mongo backend module by module.
+- Provider/channel stubs (`StubProvider`, `LogChannel`) are where **Paystack/Flutterwave** and **Termii/Africa's Talking** implementations plug in — no finance/notification code changes.
