@@ -25,17 +25,10 @@ authRouter.post("/login", async (req, res, next) => {
 authRouter.get("/me", authenticate, async (req, res, next) => {
   try {
     if (!req.auth) throw new HttpError(401, "Unauthenticated");
+    const { displayName, memberships } = await authService.me(req.auth.accountId);
+    const active = memberships.find((m) => m.schoolId === req.auth!.schoolId) ?? memberships[0];
     res.json({
-      data: {
-        accountId: req.auth.accountId,
-        active: {
-          schoolId: req.auth.schoolId,
-          orgId: req.auth.orgId,
-          role: req.auth.role,
-          orgWide: req.auth.orgWide ?? false,
-        },
-        memberships: await authService.membershipsFor(req.auth.accountId),
-      },
+      data: { accountId: req.auth.accountId, displayName, active, memberships },
     });
   } catch (err) {
     next(err);

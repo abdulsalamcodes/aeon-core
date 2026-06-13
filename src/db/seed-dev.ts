@@ -1,8 +1,10 @@
 import { sql as raw } from "drizzle-orm";
 import { db } from "./client.js";
-import { organizations, schools } from "./schema/index.js";
-import { runWithTenant } from "../tenant/context.js";
+import { organizations, schools, terms } from "./schema/index.js";
+import { runWithTenant, withTenant } from "../tenant/context.js";
 import { provisionService } from "../modules/identity/index.js";
+import { studentService } from "../modules/people/index.js";
+import { classService } from "../modules/classes/index.js";
 import { logger } from "../config/logger.js";
 
 /**
@@ -23,14 +25,31 @@ export async function seedDev(): Promise<void> {
     .returning();
 
   await provisionService.ensureSystemRoles();
-  await runWithTenant({ schoolId: school!.id, orgId: org!.id }, () =>
-    provisionService.addPrincipal({
+  const tenant = { schoolId: school!.id, orgId: org!.id };
+
+  await runWithTenant(tenant, async () => {
+    await provisionService.addPrincipal({
       email: "admin@demo.aeon",
       password: "Demo-Pass-123",
       firstName: "Demo",
       lastName: "Admin",
       role: "school-admin",
-    }),
-  );
-  logger.info({ login: "admin@demo.aeon" }, "seeded demo org/school/admin");
+    });
+
+    // A term + a couple of classes + a few students, so the cutover pages
+    // (People, Students, Classes) show real data immediately.
+    await withTenant((tx) =>
+      tx.insert(terms).values({ schoolId: school!.id, orgId: org!.id, name: "First Term", isCurrent: true }),
+    );
+    await classService.create({ name: "JSS 1A" });
+    await classService.create({ name: "JSS 1B" });
+    const demoStudents = [
+      { firstName: "Tomi", lastName: "Adeyemi", gender: "female" as const, guardianName: "Mrs Adeyemi", guardianPhone: "+2348030000001" },
+      { firstName: "Chidi", lastName: "Okafor", gender: "male" as const, guardianName: "Mr Okafor", guardianPhone: "+2348030000002" },
+      { firstName: "Aisha", lastName: "Bello", gender: "female" as const, guardianName: "Alhaji Bello", guardianPhone: "+2348030000003" },
+    ];
+    for (const s of demoStudents) await studentService.create(s);
+  });
+
+  logger.info({ login: "admin@demo.aeon" }, "seeded demo org/school/admin + classes + students");
 }

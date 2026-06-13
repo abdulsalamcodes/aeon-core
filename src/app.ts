@@ -5,7 +5,9 @@ import { authenticate } from "./auth/middleware.js";
 import { tenantResolver } from "./tenant/middleware.js";
 import { HttpError } from "./lib/http-error.js";
 import { authRouter } from "./modules/identity/index.js";
+import { publicOrgRouter } from "./modules/org/index.js";
 import { subjectRouter } from "./modules/subjects/index.js";
+import { classRouter } from "./modules/classes/index.js";
 import { peopleRouter } from "./modules/people/index.js";
 import { academicsRouter } from "./modules/academics/index.js";
 import { financeRouter } from "./modules/finance/index.js";
@@ -42,13 +44,14 @@ export function createApp(): Express {
   // Liveness — no auth, no tenant.
   app.get("/health", (_req, res) => res.json({ status: "ok" }));
 
-  // Auth surface: /login is public, /me authenticates itself. Mounted BEFORE the
-  // tenant-scoped block so login can choose a tenant.
+  // Public surface (no auth): login + school lookup for the login pages.
   app.use("/v1/auth", authRouter);
+  app.use("/v1/public", publicOrgRouter);
 
   // Everything else: authenticate → bind tenant (RLS) → handlers.
   app.use("/v1", authenticate, tenantResolver);
   app.use("/v1/subjects", subjectRouter);
+  app.use("/v1/classes", classRouter);
   app.use("/v1/people", peopleRouter);
   app.use("/v1/academics", academicsRouter);
   app.use("/v1/finance", financeRouter);

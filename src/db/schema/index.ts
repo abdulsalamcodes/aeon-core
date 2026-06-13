@@ -5,6 +5,7 @@ export * from "./roles.js";
 export * from "./persons.js";
 export * from "./memberships.js";
 export * from "./staffProfiles.js";
+export * from "./studentProfiles.js";
 export * from "./terms.js";
 export * from "./classes.js";
 export * from "./enrollments.js";
