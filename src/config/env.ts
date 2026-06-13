@@ -8,7 +8,14 @@ const schema = z.object({
   PORT: z.coerce.number().default(8080),
 
   // Postgres — the system of record (ADR-1). Use a pooled connection (PgBouncer) in prod.
-  DATABASE_URL: z.string().url().or(z.string().startsWith("postgres")),
+  DATABASE_URL: z.string().default("postgres://postgres:postgres@localhost:5432/schooler_core"),
+
+  // Embedded mode: run an in-process Postgres (PGlite) — no external server.
+  // Lets the core run/test end-to-end with zero infra. Not for production.
+  EMBEDDED_DB: z
+    .enum(["true", "false", "1", "0"])
+    .default("false")
+    .transform((v) => v === "true" || v === "1"),
 
   // Redis — cache, queue, and event streams (ADR-5/ADR-6).
   REDIS_URL: z.string().default("redis://localhost:6379"),

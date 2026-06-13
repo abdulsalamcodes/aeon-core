@@ -2,13 +2,15 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    // Unit tests don't hit the DB (the postgres connection is lazy), but the
-    // import chain loads env validation — give it valid defaults. The CI
-    // integration job overrides these with real service URLs.
+    // Run against an in-process Postgres (PGlite) — the core needs no external
+    // infra to test end-to-end. CI also runs the same suite against real
+    // Postgres (where RLS isolation is additionally enforced).
     env: {
       NODE_ENV: "test",
-      DATABASE_URL: "postgres://postgres:postgres@localhost:5432/schooler_core",
-      REDIS_URL: "redis://localhost:6379",
+      EMBEDDED_DB: "true",
+      JWT_SECRET: "test-secret-please-change-1234567890",
     },
+    hookTimeout: 30000,
+    testTimeout: 30000,
   },
 });

@@ -20,6 +20,23 @@ export function createApp(): Express {
   const app = express();
 
   app.use(pinoHttp({ logger }));
+
+  // CORS — allow the web app (browser) to call the API with its bearer token.
+  // Reflects the request origin; tighten to an allowlist in production.
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    const origin = req.headers.origin;
+    if (origin) res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-School-Id, X-Org-Id");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, PUT, DELETE, OPTIONS");
+    if (req.method === "OPTIONS") {
+      res.sendStatus(204);
+      return;
+    }
+    next();
+  });
+
   app.use(express.json({ limit: "1mb" }));
 
   // Liveness — no auth, no tenant.

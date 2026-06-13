@@ -47,6 +47,7 @@ export default tseslint.config(
       "src/events/**/*.ts",
       "src/auth/**/*.ts",
       "src/modules/identity/**/*.ts",
+      "src/**/*.test.ts", // tests may reach into internals for seeding/asserts
     ],
     rules: { "no-restricted-imports": "off" },
   },

@@ -1,7 +1,6 @@
 -- Phase 0 initial schema: org → school hierarchy, the subjects module, and the
 -- transactional outbox. Mirrors src/db/schema/*.ts.
-
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
+-- gen_random_uuid() is core Postgres (13+); no extension needed.
 
 CREATE TABLE "organizations" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
