@@ -44,9 +44,9 @@ export async function seedDev(): Promise<void> {
     await classService.create({ name: "JSS 1A" });
     await classService.create({ name: "JSS 1B" });
     const demoStudents = [
-      { firstName: "Tomi", lastName: "Adeyemi", gender: "female" as const, guardianName: "Mrs Adeyemi", guardianPhone: "+2348030000001" },
-      { firstName: "Chidi", lastName: "Okafor", gender: "male" as const, guardianName: "Mr Okafor", guardianPhone: "+2348030000002" },
-      { firstName: "Aisha", lastName: "Bello", gender: "female" as const, guardianName: "Alhaji Bello", guardianPhone: "+2348030000003" },
+      { firstName: "Tomi", lastName: "Adeyemi", gender: "female" as const, studentNumber: "STU-001", dob: "2012-03-04", guardianName: "Mrs Adeyemi", guardianPhone: "+2348030000001" },
+      { firstName: "Chidi", lastName: "Okafor", gender: "male" as const, studentNumber: "STU-002", dob: "2011-09-21", guardianName: "Mr Okafor", guardianPhone: "+2348030000002" },
+      { firstName: "Aisha", lastName: "Bello", gender: "female" as const, studentNumber: "STU-003", dob: "2012-01-15", guardianName: "Alhaji Bello", guardianPhone: "+2348030000003" },
     ];
     for (const s of demoStudents) await studentService.create(s);
   });

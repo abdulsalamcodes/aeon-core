@@ -20,6 +20,7 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
       orgId: claims.orgId,
       role: claims.role,
       orgWide: claims.orgWide,
+      studentId: claims.studentId,
     };
     next();
   } catch {
@@ -37,6 +38,7 @@ declare global {
         orgId: string;
         role: string;
         orgWide?: boolean;
+        studentId?: string;
       };
     }
   }

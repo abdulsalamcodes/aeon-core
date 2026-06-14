@@ -15,6 +15,7 @@ import { insightsRouter } from "./modules/insights/index.js";
 import { financeRouter } from "./modules/finance/index.js";
 import { notificationsRouter } from "./modules/notifications/index.js";
 import { workflowRouter } from "./modules/workflow/index.js";
+import { portalAuthRouter, portalRouter } from "./modules/portal/index.js";
 import { registerDefaultProviders } from "./payments/index.js";
 import { registerDefaultChannels } from "./notifications/index.js";
 
@@ -49,6 +50,7 @@ export function createApp(): Express {
   // Public surface (no auth): login + school lookup for the login pages.
   app.use("/v1/auth", authRouter);
   app.use("/v1/public", publicOrgRouter);
+  app.use("/v1/portal/auth", portalAuthRouter);
 
   // Everything else: authenticate → bind tenant (RLS) → handlers.
   app.use("/v1", authenticate, tenantResolver);
@@ -61,6 +63,7 @@ export function createApp(): Express {
   app.use("/v1/finance", financeRouter);
   app.use("/v1/notifications", notificationsRouter);
   app.use("/v1/workflows", workflowRouter);
+  app.use("/v1/portal", portalRouter);
 
   // Central error handler — maps HttpError to its status.
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {

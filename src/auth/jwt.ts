@@ -10,11 +10,13 @@ const ALG = "HS256";
  * RLS for the request — no extra DB hit on the hot path.
  */
 export interface AccessClaims {
-  sub: string; // account id
+  sub: string; // account id (or person id for students)
   schoolId: string;
   orgId: string;
   role: string; // role name of the active membership
   orgWide: boolean;
+  /** Set for student-portal tokens — the student's person id. */
+  studentId?: string;
 }
 
 export async function signAccessToken(claims: AccessClaims): Promise<string> {
@@ -33,5 +35,6 @@ export async function verifyAccessToken(token: string): Promise<AccessClaims> {
     orgId: String(payload.orgId),
     role: String(payload.role),
     orgWide: Boolean(payload.orgWide),
+    studentId: payload.studentId ? String(payload.studentId) : undefined,
   };
 }
