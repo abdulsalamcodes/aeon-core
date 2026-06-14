@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, boolean, uniqueIndex } from "drizzle-orm/pg-core";
 
 /**
  * Account = one per human LOGIN (ADR-4). Global, not tenant-owned: a single
@@ -13,6 +13,8 @@ export const accounts = pgTable(
     phone: text("phone"),
     passwordHash: text("password_hash").notNull(),
     status: text("status", { enum: ["active", "disabled"] }).notNull().default("active"),
+    /** Platform super-admin (manages institutions across all tenants). */
+    isSuperAdmin: boolean("is_super_admin").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({

@@ -16,6 +16,7 @@ import { financeRouter } from "./modules/finance/index.js";
 import { notificationsRouter } from "./modules/notifications/index.js";
 import { workflowRouter } from "./modules/workflow/index.js";
 import { portalAuthRouter, portalRouter } from "./modules/portal/index.js";
+import { adminAuthRouter, adminRouter } from "./modules/admin/index.js";
 import { registerDefaultProviders } from "./payments/index.js";
 import { registerDefaultChannels } from "./notifications/index.js";
 
@@ -51,6 +52,11 @@ export function createApp(): Express {
   app.use("/v1/auth", authRouter);
   app.use("/v1/public", publicOrgRouter);
   app.use("/v1/portal/auth", portalAuthRouter);
+  app.use("/v1/admin/auth", adminAuthRouter);
+
+  // Super-admin area: authenticated but NOT tenant-bound (spans all schools).
+  // Mounted before the tenant block so tenantResolver doesn't require a school.
+  app.use("/v1/admin", adminRouter);
 
   // Everything else: authenticate → bind tenant (RLS) → handlers.
   app.use("/v1", authenticate, tenantResolver);

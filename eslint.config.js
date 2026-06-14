@@ -49,6 +49,7 @@ export default tseslint.config(
       "src/modules/identity/**/*.ts",
       "src/modules/org/**/*.ts", // public org/school reads (pre-tenant, like identity)
       "src/modules/portal/**/*.ts", // student login resolves school + student pre-tenant
+      "src/modules/admin/**/*.ts", // super-admin spans all tenants (cross-tenant reads)
       "src/modules/insights/**/*.ts", // cross-table count queries
       "src/**/*.test.ts", // tests may reach into internals for seeding/asserts
     ],

@@ -1,7 +1,8 @@
 import { sql as raw } from "drizzle-orm";
 import { db } from "./client.js";
-import { organizations, schools, terms } from "./schema/index.js";
+import { organizations, schools, terms, accounts } from "./schema/index.js";
 import { runWithTenant, withTenant } from "../tenant/context.js";
+import { hashPassword } from "../auth/password.js";
 import { provisionService } from "../modules/identity/index.js";
 import { studentService } from "../modules/people/index.js";
 import { classService } from "../modules/classes/index.js";
@@ -25,6 +26,14 @@ export async function seedDev(): Promise<void> {
     .returning();
 
   await provisionService.ensureSystemRoles();
+
+  // Platform super-admin (manages institutions). Login: superadmin@aeon.app / Super-Pass-123
+  await db.insert(accounts).values({
+    email: "superadmin@aeon.app",
+    passwordHash: await hashPassword("Super-Pass-123"),
+    isSuperAdmin: true,
+  });
+
   const tenant = { schoolId: school!.id, orgId: org!.id };
 
   await runWithTenant(tenant, async () => {
