@@ -1,10 +1,25 @@
 import { Router } from "express";
-import { count, ne, eq } from "drizzle-orm";
-import { studentProfiles, memberships, classes, attendance } from "../../db/schema/index.js";
+import { count, ne, eq, desc } from "drizzle-orm";
+import { studentProfiles, memberships, classes, attendance, outboxEvents } from "../../db/schema/index.js";
 import { withTenant } from "../../tenant/context.js";
 
-/** School-level summary stats for the dashboard. */
+/** School-level summary stats + activity feed for the dashboard / inbox. */
 export const insightsRouter: Router = Router();
+
+insightsRouter.get("/activity", async (_req, res, next) => {
+  try {
+    const rows = await withTenant((tx) =>
+      tx
+        .select({ id: outboxEvents.id, aggregate: outboxEvents.aggregate, eventType: outboxEvents.eventType, payload: outboxEvents.payload, createdAt: outboxEvents.createdAt })
+        .from(outboxEvents)
+        .orderBy(desc(outboxEvents.createdAt))
+        .limit(40),
+    );
+    res.json({ data: rows.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() })) });
+  } catch (err) {
+    next(err);
+  }
+});
 
 insightsRouter.get("/", async (_req, res, next) => {
   try {

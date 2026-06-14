@@ -71,6 +71,19 @@ financeRouter.post("/payments/webhook/:provider", async (req, res, next) => {
   }
 });
 
+financeRouter.get("/outstanding", async (req, res, next) => {
+  try {
+    const termId = String(req.query.termId ?? "");
+    if (!termId) {
+      res.status(400).json({ error: "termId required" });
+      return;
+    }
+    res.json({ data: await financeService.outstanding(termId) });
+  } catch (err) {
+    next(err);
+  }
+});
+
 financeRouter.get("/balance", async (req, res, next) => {
   try {
     const studentId = String(req.query.studentId ?? "");

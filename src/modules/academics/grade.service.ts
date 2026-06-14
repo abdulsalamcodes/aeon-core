@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { grades, type Grade } from "../../db/schema/grades.js";
+import { enrollments } from "../../db/schema/enrollments.js";
+import { persons } from "../../db/schema/persons.js";
+import { subjects } from "../../db/schema/subjects.js";
 import { currentTenant, withTenant } from "../../tenant/context.js";
 
 export const recordGradeInput = z.object({
@@ -43,6 +46,29 @@ export const gradeService = {
         .select()
         .from(grades)
         .where(and(eq(grades.studentId, studentId), eq(grades.termId, termId))),
+    );
+  },
+
+  /** Class grade sheet: every student enrolled in the class for the term, with
+   *  their grade rows (left join — students with no grade yet show up too). */
+  async classSheet(classId: string, termId: string) {
+    return withTenant((tx) =>
+      tx
+        .select({
+          studentId: persons.id,
+          firstName: persons.firstName,
+          lastName: persons.lastName,
+          gradeId: grades.id,
+          subjectId: grades.subjectId,
+          subjectName: subjects.name,
+          caScore: grades.caScore,
+          examScore: grades.examScore,
+        })
+        .from(enrollments)
+        .innerJoin(persons, eq(persons.id, enrollments.studentId))
+        .leftJoin(grades, and(eq(grades.studentId, persons.id), eq(grades.termId, termId)))
+        .leftJoin(subjects, eq(subjects.id, grades.subjectId))
+        .where(and(eq(enrollments.classId, classId), eq(enrollments.termId, termId))),
     );
   },
 };

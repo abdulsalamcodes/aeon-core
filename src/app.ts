@@ -13,6 +13,7 @@ import { academicsRouter } from "./modules/academics/index.js";
 import { academicRouter } from "./modules/academic/index.js";
 import { insightsRouter } from "./modules/insights/index.js";
 import { financeRouter } from "./modules/finance/index.js";
+import { calendarRouter, timetableRouter } from "./modules/schedule/index.js";
 import { notificationsRouter } from "./modules/notifications/index.js";
 import { workflowRouter } from "./modules/workflow/index.js";
 import { portalAuthRouter, portalRouter } from "./modules/portal/index.js";
@@ -67,6 +68,8 @@ export function createApp(): Express {
   app.use("/v1/academic", academicRouter);
   app.use("/v1/stats", insightsRouter);
   app.use("/v1/finance", financeRouter);
+  app.use("/v1/calendar", calendarRouter);
+  app.use("/v1/timetable", timetableRouter);
   app.use("/v1/notifications", notificationsRouter);
   app.use("/v1/workflows", workflowRouter);
   app.use("/v1/portal", portalRouter);

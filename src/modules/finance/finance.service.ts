@@ -2,6 +2,7 @@ import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { feeStructures, type FeeStructure } from "../../db/schema/feeStructures.js";
 import { ledgerEntries, type LedgerEntry } from "../../db/schema/ledgerEntries.js";
+import { persons } from "../../db/schema/persons.js";
 import { currentTenant, withTenant } from "../../tenant/context.js";
 import { emit } from "../../events/outbox.js";
 import { computeBalances, type CurrencyBalance } from "./balance.js";
@@ -153,6 +154,35 @@ export const financeService = {
       idempotencyKey: evt.idempotencyKey,
       method: "card",
       reference: evt.providerRef,
+    });
+  },
+
+  /** Per-student balances for a term (for the payments / overview screens). */
+  async outstanding(termId: string) {
+    const rows = await withTenant((tx) =>
+      tx
+        .select({
+          studentId: ledgerEntries.studentId,
+          firstName: persons.firstName,
+          lastName: persons.lastName,
+          direction: ledgerEntries.direction,
+          amountMinor: ledgerEntries.amountMinor,
+          currency: ledgerEntries.currency,
+        })
+        .from(ledgerEntries)
+        .innerJoin(persons, eq(persons.id, ledgerEntries.studentId))
+        .where(eq(ledgerEntries.termId, termId)),
+    );
+    const byStudent = new Map<string, { studentId: string; name: string; amountDue: number; amountPaid: number; currency: string }>();
+    for (const r of rows) {
+      const acc = byStudent.get(r.studentId) ?? { studentId: r.studentId, name: `${r.firstName} ${r.lastName}`, amountDue: 0, amountPaid: 0, currency: r.currency };
+      if (r.direction === "debit") acc.amountDue += r.amountMinor;
+      else acc.amountPaid += r.amountMinor;
+      byStudent.set(r.studentId, acc);
+    }
+    return [...byStudent.values()].map((a) => {
+      const balance = a.amountDue - a.amountPaid;
+      return { ...a, balance, status: balance <= 0 ? "paid" : a.amountPaid > 0 ? "partial" : "unpaid" };
     });
   },
 

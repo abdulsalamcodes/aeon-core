@@ -16,5 +16,7 @@ export * from "./feeStructures.js";
 export * from "./ledgerEntries.js";
 export * from "./notifications.js";
 export * from "./workflows.js";
+export * from "./calendarEvents.js";
+export * from "./timetables.js";
 export * from "./subjects.js";
 export * from "./outbox.js";

@@ -44,6 +44,20 @@ academicsRouter.post("/attendance/mark", async (req, res, next) => {
   }
 });
 
+academicsRouter.get("/grades/class", async (req, res, next) => {
+  try {
+    const classId = String(req.query.classId ?? "");
+    const termId = String(req.query.termId ?? "");
+    if (!classId || !termId) {
+      res.status(400).json({ error: "classId and termId required" });
+      return;
+    }
+    res.json({ data: await gradeService.classSheet(classId, termId) });
+  } catch (err) {
+    next(err);
+  }
+});
+
 academicsRouter.get("/grades", async (req, res, next) => {
   try {
     const studentId = String(req.query.studentId ?? "");
