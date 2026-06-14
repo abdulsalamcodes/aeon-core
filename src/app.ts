@@ -14,6 +14,7 @@ import { academicRouter } from "./modules/academic/index.js";
 import { insightsRouter } from "./modules/insights/index.js";
 import { financeRouter } from "./modules/finance/index.js";
 import { calendarRouter, timetableRouter } from "./modules/schedule/index.js";
+import { uploadsRouter } from "./modules/uploads/index.js";
 import { notificationsRouter } from "./modules/notifications/index.js";
 import { workflowRouter } from "./modules/workflow/index.js";
 import { portalAuthRouter, portalRouter } from "./modules/portal/index.js";
@@ -44,7 +45,7 @@ export function createApp(): Express {
     next();
   });
 
-  app.use(express.json({ limit: "1mb" }));
+  app.use(express.json({ limit: "12mb" })); // generous for photo data URLs + CSV imports
 
   // Liveness — no auth, no tenant.
   app.get("/health", (_req, res) => res.json({ status: "ok" }));
@@ -70,6 +71,7 @@ export function createApp(): Express {
   app.use("/v1/finance", financeRouter);
   app.use("/v1/calendar", calendarRouter);
   app.use("/v1/timetable", timetableRouter);
+  app.use("/v1/uploads", uploadsRouter);
   app.use("/v1/notifications", notificationsRouter);
   app.use("/v1/workflows", workflowRouter);
   app.use("/v1/portal", portalRouter);

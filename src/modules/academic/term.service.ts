@@ -41,6 +41,19 @@ export const termService = {
     });
   },
 
+  async update(id: string, patch: { name?: string; startDate?: string; endDate?: string }): Promise<void> {
+    await withTenant((tx) =>
+      tx
+        .update(terms)
+        .set({
+          ...(patch.name ? { name: patch.name } : {}),
+          ...(patch.startDate ? { startDate: patch.startDate } : {}),
+          ...(patch.endDate ? { endDate: patch.endDate } : {}),
+        })
+        .where(eq(terms.id, id)),
+    );
+  },
+
   async setCurrent(termId: string): Promise<Term> {
     return withTenant(async (tx) => {
       await tx.update(terms).set({ isCurrent: false });

@@ -1,11 +1,15 @@
 import { z } from "zod";
-import { eq } from "drizzle-orm";
+import { eq, and, gt } from "drizzle-orm";
+import { createHash, randomBytes } from "node:crypto";
 import { db } from "../../db/client.js";
 import { accounts, memberships, schools, persons } from "../../db/schema/index.js";
 import { withAccount } from "../../tenant/context.js";
 import { hashPassword, verifyPassword } from "../../auth/password.js";
 import { signAccessToken } from "../../auth/jwt.js";
 import { HttpError } from "../../lib/http-error.js";
+import { sendEmail } from "../../email/email.js";
+
+const sha = (s: string) => createHash("sha256").update(s).digest("hex");
 
 export const loginInput = z
   .object({
@@ -116,6 +120,7 @@ export const authService = {
       orgId: active.orgId,
       role: active.role,
       orgWide: active.orgWide,
+      name: displayName,
     });
 
     return { accessToken, accountId: account.id, displayName, active, memberships: summaries };
@@ -124,5 +129,39 @@ export const authService = {
   /** Returns the authenticated principal (for /auth/me). */
   async me(accountId: string): Promise<{ displayName: string; memberships: MembershipSummary[] }> {
     return principal(accountId);
+  },
+
+  /** Authenticated change of own password (verifies the current one). */
+  async changePassword(accountId: string, currentPassword: string, newPassword: string): Promise<void> {
+    const [account] = await db.select().from(accounts).where(eq(accounts.id, accountId)).limit(1);
+    if (!account) throw new HttpError(404, "Account not found");
+    if (!(await verifyPassword(currentPassword, account.passwordHash))) throw new HttpError(401, "Current password is incorrect");
+    await db.update(accounts).set({ passwordHash: await hashPassword(newPassword) }).where(eq(accounts.id, accountId));
+  },
+
+  /** Begins a reset: stores a token hash, emails the link. Always "succeeds"
+   *  (no account enumeration). */
+  async forgotPassword(email: string): Promise<void> {
+    const [account] = await db.select().from(accounts).where(eq(accounts.email, email.toLowerCase())).limit(1);
+    if (!account) return;
+    const token = randomBytes(32).toString("hex");
+    await db
+      .update(accounts)
+      .set({ resetTokenHash: sha(token), resetExpires: new Date(Date.now() + 60 * 60 * 1000) })
+      .where(eq(accounts.id, account.id));
+    await sendEmail(account.email, "Reset your Aeon password", `Use this token to reset your password: ${token}`);
+  },
+
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    const [account] = await db
+      .select()
+      .from(accounts)
+      .where(and(eq(accounts.resetTokenHash, sha(token)), gt(accounts.resetExpires, new Date())))
+      .limit(1);
+    if (!account) throw new HttpError(400, "Invalid or expired reset token");
+    await db
+      .update(accounts)
+      .set({ passwordHash: await hashPassword(newPassword), resetTokenHash: null, resetExpires: null })
+      .where(eq(accounts.id, account.id));
   },
 };

@@ -26,6 +26,8 @@ export function tenantResolver(req: Request, res: Response, next: NextFunction) 
     schoolId,
     orgId,
     orgWide: req.auth?.orgWide ?? false,
+    actorId: req.auth?.accountId,
+    actorName: req.auth?.name,
   };
   runWithTenant(ctx, () => next());
 }

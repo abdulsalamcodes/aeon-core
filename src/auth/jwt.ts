@@ -15,6 +15,8 @@ export interface AccessClaims {
   orgId: string;
   role: string; // role name of the active membership
   orgWide: boolean;
+  /** Display name of the principal (for audit attribution). */
+  name?: string;
   /** Set for student-portal tokens — the student's person id. */
   studentId?: string;
 }
@@ -35,6 +37,7 @@ export async function verifyAccessToken(token: string): Promise<AccessClaims> {
     orgId: String(payload.orgId),
     role: String(payload.role),
     orgWide: Boolean(payload.orgWide),
+    name: payload.name ? String(payload.name) : undefined,
     studentId: payload.studentId ? String(payload.studentId) : undefined,
   };
 }

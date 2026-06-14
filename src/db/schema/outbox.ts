@@ -15,6 +15,8 @@ export const outboxEvents = pgTable(
     aggregateId: uuid("aggregate_id").notNull(),
     eventType: text("event_type").notNull(), // e.g. "SubjectCreated"
     payload: jsonb("payload").notNull().$type<Record<string, unknown>>(),
+    actorId: uuid("actor_id"),
+    actorName: text("actor_name"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     publishedAt: timestamp("published_at", { withTimezone: true }),
   },

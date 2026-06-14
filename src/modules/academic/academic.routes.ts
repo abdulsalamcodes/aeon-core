@@ -33,6 +33,15 @@ academicRouter.post("/terms", async (req, res, next) => {
   }
 });
 
+academicRouter.patch("/terms/:id", async (req, res, next) => {
+  try {
+    await termService.update(req.params.id, req.body ?? {});
+    res.json({ data: { id: req.params.id } });
+  } catch (err) {
+    next(err);
+  }
+});
+
 academicRouter.post("/terms/:id/set-current", async (req, res, next) => {
   try {
     res.json({ data: await termService.setCurrent(req.params.id) });

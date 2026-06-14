@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isNull } from "drizzle-orm";
+import { isNull, eq } from "drizzle-orm";
 import { subjects, type Subject } from "../../db/schema/subjects.js";
 import { currentTenant, withTenant } from "../../tenant/context.js";
 import { emit } from "../../events/outbox.js";
@@ -39,5 +39,13 @@ export const subjectService = {
       });
       return row;
     });
+  },
+
+  async update(id: string, name: string): Promise<void> {
+    await withTenant((tx) => tx.update(subjects).set({ name }).where(eq(subjects.id, id)));
+  },
+
+  async remove(id: string): Promise<void> {
+    await withTenant((tx) => tx.update(subjects).set({ deletedAt: new Date() }).where(eq(subjects.id, id)));
   },
 };

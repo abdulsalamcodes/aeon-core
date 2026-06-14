@@ -7,6 +7,9 @@ export interface TenantContext {
   orgId: string;
   /** Set when the principal may read across their whole org (e.g. a director). */
   orgWide?: boolean;
+  /** Acting principal (for audit attribution on emitted events). */
+  actorId?: string;
+  actorName?: string;
 }
 
 const als = new AsyncLocalStorage<TenantContext>();
@@ -19,6 +22,12 @@ export function currentTenant(): TenantContext {
   const ctx = als.getStore();
   if (!ctx) throw new Error("No tenant context — request not tenant-resolved");
   return ctx;
+}
+
+/** The acting principal, if any (used for audit attribution). Never throws. */
+export function currentActor(): { actorId?: string; actorName?: string } {
+  const ctx = als.getStore();
+  return { actorId: ctx?.actorId, actorName: ctx?.actorName };
 }
 
 export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];

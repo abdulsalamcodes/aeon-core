@@ -10,12 +10,12 @@ insightsRouter.get("/activity", async (_req, res, next) => {
   try {
     const rows = await withTenant((tx) =>
       tx
-        .select({ id: outboxEvents.id, aggregate: outboxEvents.aggregate, eventType: outboxEvents.eventType, payload: outboxEvents.payload, createdAt: outboxEvents.createdAt })
+        .select({ id: outboxEvents.id, aggregate: outboxEvents.aggregate, eventType: outboxEvents.eventType, payload: outboxEvents.payload, actorName: outboxEvents.actorName, createdAt: outboxEvents.createdAt })
         .from(outboxEvents)
         .orderBy(desc(outboxEvents.createdAt))
         .limit(40),
     );
-    res.json({ data: rows.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() })) });
+    res.json({ data: rows.map((r) => ({ ...r, actorName: r.actorName ?? "System", createdAt: r.createdAt.toISOString() })) });
   } catch (err) {
     next(err);
   }

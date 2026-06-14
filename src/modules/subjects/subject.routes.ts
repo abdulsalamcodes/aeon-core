@@ -28,3 +28,21 @@ subjectRouter.post("/", async (req, res, next) => {
     next(err);
   }
 });
+
+subjectRouter.patch("/:id", async (req, res, next) => {
+  try {
+    await subjectService.update(req.params.id, String(req.body?.name ?? req.body?.subjectName ?? ""));
+    res.json({ data: { id: req.params.id } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+subjectRouter.delete("/:id", async (req, res, next) => {
+  try {
+    await subjectService.remove(req.params.id);
+    res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+});

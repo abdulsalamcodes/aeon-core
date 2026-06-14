@@ -3,6 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { feeStructures, type FeeStructure } from "../../db/schema/feeStructures.js";
 import { ledgerEntries, type LedgerEntry } from "../../db/schema/ledgerEntries.js";
 import { persons } from "../../db/schema/persons.js";
+import { enrollments } from "../../db/schema/enrollments.js";
 import { currentTenant, withTenant } from "../../tenant/context.js";
 import { emit } from "../../events/outbox.js";
 import { computeBalances, type CurrencyBalance } from "./balance.js";
@@ -184,6 +185,55 @@ export const financeService = {
       const balance = a.amountDue - a.amountPaid;
       return { ...a, balance, status: balance <= 0 ? "paid" : a.amountPaid > 0 ? "partial" : "unpaid" };
     });
+  },
+
+  async updateStructure(id: string, patch: { name?: string; amountMinor?: number; isDefault?: boolean }): Promise<void> {
+    await withTenant((tx) =>
+      tx
+        .update(feeStructures)
+        .set({
+          ...(patch.name ? { name: patch.name } : {}),
+          ...(patch.amountMinor !== undefined ? { amountMinor: patch.amountMinor } : {}),
+          ...(patch.isDefault !== undefined ? { isDefault: patch.isDefault } : {}),
+        })
+        .where(eq(feeStructures.id, id)),
+    );
+  },
+
+  /** Assigns a fee structure to every student enrolled in a class for the term. */
+  async assignToClass(input: { classId: string; feeStructureId: string; termId: string }): Promise<{ assigned: number; skipped: number; total: number }> {
+    const studentIds = await withTenant((tx) =>
+      tx
+        .select({ studentId: enrollments.studentId })
+        .from(enrollments)
+        .where(and(eq(enrollments.classId, input.classId), eq(enrollments.termId, input.termId))),
+    );
+    let assigned = 0;
+    for (const s of studentIds) {
+      try {
+        await this.assignFee({ studentId: s.studentId, feeStructureId: input.feeStructureId });
+        assigned++;
+      } catch {
+        /* skip duplicates / failures */
+      }
+    }
+    return { assigned, skipped: studentIds.length - assigned, total: studentIds.length };
+  },
+
+  /** Student fee summary for a term (totals + ledger entries). */
+  async studentTerm(studentId: string, termId: string) {
+    const balances = await this.balanceFor(studentId, termId);
+    const b = balances[0];
+    return {
+      student: studentId,
+      term: termId,
+      summary: {
+        totalDue: (b?.billedMinor ?? 0) / 100,
+        totalPaid: (b?.paidMinor ?? 0) / 100,
+        totalBalance: (b?.balanceMinor ?? 0) / 100,
+      },
+      payments: [],
+    };
   },
 
   async listStructures(termId?: string): Promise<FeeStructure[]> {

@@ -22,6 +22,38 @@ authRouter.post("/login", async (req, res, next) => {
   }
 });
 
+authRouter.post("/forgot-password", async (req, res, next) => {
+  try {
+    if (req.body?.email) await authService.forgotPassword(String(req.body.email));
+    res.json({ data: null, message: "If that account exists, a reset link has been sent." });
+  } catch (err) {
+    next(err);
+  }
+});
+
+authRouter.post("/reset-password/:token", async (req, res, next) => {
+  try {
+    await authService.resetPassword(req.params.token, String(req.body?.password ?? ""));
+    res.json({ data: null });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Email verification: no-op success in the current build (no real users yet).
+authRouter.get("/verify-email/:token", (_req, res) => res.json({ data: null }));
+authRouter.post("/send-verification", (_req, res) => res.json({ data: null }));
+
+authRouter.patch("/change-password", authenticate, async (req, res, next) => {
+  try {
+    if (!req.auth) throw new HttpError(401, "Unauthenticated");
+    await authService.changePassword(req.auth.accountId, String(req.body?.currentPassword ?? ""), String(req.body?.password ?? ""));
+    res.json({ data: null });
+  } catch (err) {
+    next(err);
+  }
+});
+
 authRouter.get("/me", authenticate, async (req, res, next) => {
   try {
     if (!req.auth) throw new HttpError(401, "Unauthenticated");

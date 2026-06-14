@@ -42,6 +42,22 @@ export const classService = {
     }));
   },
 
+  async update(id: string, input: Partial<CreateClassInput>): Promise<void> {
+    await withTenant((tx) =>
+      tx
+        .update(classes)
+        .set({
+          ...(input.name ? { name: input.name } : {}),
+          ...(input.classTeacherId !== undefined ? { classTeacherId: input.classTeacherId || null } : {}),
+        })
+        .where(eq(classes.id, id)),
+    );
+  },
+
+  async remove(id: string): Promise<void> {
+    await withTenant((tx) => tx.update(classes).set({ deletedAt: new Date() }).where(eq(classes.id, id)));
+  },
+
   async create(input: CreateClassInput): Promise<ClassRow> {
     const { schoolId, orgId } = currentTenant();
     return withTenant(async (tx) => {

@@ -23,3 +23,21 @@ classRouter.post("/", async (req, res, next) => {
     next(err);
   }
 });
+
+classRouter.patch("/:id", async (req, res, next) => {
+  try {
+    await classService.update(req.params.id, req.body ?? {});
+    res.json({ data: { id: req.params.id } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+classRouter.delete("/:id", async (req, res, next) => {
+  try {
+    await classService.remove(req.params.id);
+    res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+});

@@ -71,6 +71,42 @@ financeRouter.post("/payments/webhook/:provider", async (req, res, next) => {
   }
 });
 
+financeRouter.patch("/fee-structures/:id", async (req, res, next) => {
+  try {
+    await financeService.updateStructure(req.params.id, req.body ?? {});
+    res.json({ data: { id: req.params.id } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+financeRouter.post("/assign-class", async (req, res, next) => {
+  try {
+    const { classId, feeStructureId, termId } = req.body ?? {};
+    if (!classId || !feeStructureId || !termId) {
+      res.status(400).json({ error: "classId, feeStructureId, termId required" });
+      return;
+    }
+    res.json({ data: await financeService.assignToClass({ classId, feeStructureId, termId }) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+financeRouter.get("/student-term", async (req, res, next) => {
+  try {
+    const studentId = String(req.query.studentId ?? "");
+    const termId = String(req.query.termId ?? "");
+    if (!studentId || !termId) {
+      res.status(400).json({ error: "studentId and termId required" });
+      return;
+    }
+    res.json({ data: await financeService.studentTerm(studentId, termId) });
+  } catch (err) {
+    next(err);
+  }
+});
+
 financeRouter.get("/outstanding", async (req, res, next) => {
   try {
     const termId = String(req.query.termId ?? "");

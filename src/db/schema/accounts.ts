@@ -15,6 +15,9 @@ export const accounts = pgTable(
     status: text("status", { enum: ["active", "disabled"] }).notNull().default("active"),
     /** Platform super-admin (manages institutions across all tenants). */
     isSuperAdmin: boolean("is_super_admin").notNull().default(false),
+    resetTokenHash: text("reset_token_hash"),
+    resetExpires: timestamp("reset_expires", { withTimezone: true }),
+    emailVerified: boolean("email_verified").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
