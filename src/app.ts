@@ -10,6 +10,8 @@ import { subjectRouter } from "./modules/subjects/index.js";
 import { classRouter } from "./modules/classes/index.js";
 import { peopleRouter } from "./modules/people/index.js";
 import { academicsRouter } from "./modules/academics/index.js";
+import { academicRouter } from "./modules/academic/index.js";
+import { insightsRouter } from "./modules/insights/index.js";
 import { financeRouter } from "./modules/finance/index.js";
 import { notificationsRouter } from "./modules/notifications/index.js";
 import { workflowRouter } from "./modules/workflow/index.js";
@@ -54,6 +56,8 @@ export function createApp(): Express {
   app.use("/v1/classes", classRouter);
   app.use("/v1/people", peopleRouter);
   app.use("/v1/academics", academicsRouter);
+  app.use("/v1/academic", academicRouter);
+  app.use("/v1/stats", insightsRouter);
   app.use("/v1/finance", financeRouter);
   app.use("/v1/notifications", notificationsRouter);
   app.use("/v1/workflows", workflowRouter);

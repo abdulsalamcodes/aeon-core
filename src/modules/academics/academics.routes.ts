@@ -18,6 +18,19 @@ academicsRouter.get("/attendance", async (req, res, next) => {
   }
 });
 
+academicsRouter.post("/attendance/bulk", async (req, res, next) => {
+  try {
+    const { classId, termId, date, records } = req.body ?? {};
+    if (!classId || !termId || !date || !Array.isArray(records)) {
+      res.status(400).json({ error: "classId, termId, date, records required" });
+      return;
+    }
+    res.json({ data: { count: await attendanceService.bulkMark({ classId, termId, date, records }) } });
+  } catch (err) {
+    next(err);
+  }
+});
+
 academicsRouter.post("/attendance/mark", async (req, res, next) => {
   try {
     const parsed = markInput.safeParse(req.body);

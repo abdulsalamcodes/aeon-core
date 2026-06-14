@@ -37,6 +37,23 @@ export const attendanceService = {
     });
   },
 
+  /** Upsert a whole class register for a date (mark all present/absent/etc). */
+  async bulkMark(p: { classId: string; termId: string; date: string; records: { studentId: string; status: MarkInput["status"] }[] }): Promise<number> {
+    const { schoolId } = currentTenant();
+    await withTenant(async (tx) => {
+      for (const r of p.records) {
+        await tx
+          .insert(attendance)
+          .values({ schoolId, studentId: r.studentId, classId: p.classId, termId: p.termId, date: p.date, status: r.status })
+          .onConflictDoUpdate({
+            target: [attendance.studentId, attendance.classId, attendance.date],
+            set: { status: r.status },
+          });
+      }
+    });
+    return p.records.length;
+  },
+
   async listForClassDate(classId: string, date: string): Promise<Attendance[]> {
     return withTenant((tx) =>
       tx

@@ -8,6 +8,15 @@ import {
 
 export const financeRouter: Router = Router();
 
+financeRouter.get("/fee-structures", async (req, res, next) => {
+  try {
+    const termId = req.query.termId ? String(req.query.termId) : undefined;
+    res.json({ data: await financeService.listStructures(termId) });
+  } catch (err) {
+    next(err);
+  }
+});
+
 financeRouter.post("/fee-structures", async (req, res, next) => {
   try {
     const parsed = createFeeStructureInput.safeParse(req.body);

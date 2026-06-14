@@ -156,6 +156,14 @@ export const financeService = {
     });
   },
 
+  async listStructures(termId?: string): Promise<FeeStructure[]> {
+    return withTenant((tx) =>
+      termId
+        ? tx.select().from(feeStructures).where(eq(feeStructures.termId, termId))
+        : tx.select().from(feeStructures),
+    );
+  },
+
   async balanceFor(studentId: string, termId: string): Promise<CurrencyBalance[]> {
     const rows = await withTenant((tx) =>
       tx
