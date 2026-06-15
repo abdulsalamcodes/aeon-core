@@ -1,12 +1,18 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { sql as raw } from "drizzle-orm";
 import { db, execRaw } from "./client.js";
 import { logger } from "../config/logger.js";
 
+// Resolve migrations directory. `import.meta.url` gives the right path when
+// running from source (tsx) or compiled dist/ (tsc). In esbuild-bundled
+// environments (Vercel serverless) the URL points to the bundle, not the
+// source — fall back to process.cwd() which is the project root (/var/task).
 const here = dirname(fileURLToPath(import.meta.url));
-const migrationsDir = join(here, "migrations");
+const migrationsDir = existsSync(join(here, "migrations"))
+  ? join(here, "migrations")
+  : join(process.cwd(), "src/db/migrations");
 
 interface JournalEntry {
   idx: number;

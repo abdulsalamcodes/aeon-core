@@ -1,5 +1,5 @@
 {
-  "name": "schooler-core",
+  "name": "aeon-core",
   "version": "0.0.1",
   "private": true,
   "description": "Aeon greenfield core — Postgres + Drizzle + RLS modular monolith (ARCHITECTURE.md Phase 0)",
