@@ -32,7 +32,9 @@ import { logger } from "../config/logger.js";
  *
  * Change credentials immediately after first login.
  */
-export async function seedProd(): Promise<void> {
+export async function seedProd(opts: { force?: boolean } = {}): Promise<void> {
+  const force = opts.force ?? process.env["SEED_FORCE"] === "1";
+
   const existing = await db.execute(
     raw`select count(*)::int as n from organizations`,
   );
@@ -41,9 +43,16 @@ export async function seedProd(): Promise<void> {
       ? existing
       : ((existing as { rows?: unknown[] }).rows ?? [])
   ) as { n: number }[];
-  if ((rows[0]?.n ?? 0) > 0) {
+  if ((rows[0]?.n ?? 0) > 0 && !force) {
     logger.info("prod seed skipped — data already exists");
     return;
+  }
+
+  if (force) {
+    logger.info("SEED_FORCE=1 — wiping existing seed data");
+    await db.execute(raw`truncate organizations cascade`);
+    await db.execute(raw`truncate accounts cascade`);
+    await db.execute(raw`truncate roles cascade`);
   }
 
   // ── Platform admin ────────────────────────────────────────────────────────
@@ -505,6 +514,7 @@ export async function seedProd(): Promise<void> {
     ];
 
     for (const s of studentSeeds) {
+      logger.info({ student: s.studentNumber }, "seeding student");
       const student = await studentService.create({
         firstName: s.firstName,
         lastName: s.lastName,
