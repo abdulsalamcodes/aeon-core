@@ -1,0 +1,9 @@
+# Vercel already ignores node_modules and .env by default.
+# Keep source files — the build step compiles src/ → dist/.
+docs/
+.git/
+.github/
+*.test.ts
+vitest.config.ts
+eslint.config.js
+drizzle.config.ts
