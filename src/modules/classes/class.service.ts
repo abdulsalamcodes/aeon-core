@@ -37,7 +37,9 @@ export const classService = {
       id: r.id,
       name: r.name,
       classTeacherId: r.classTeacherId,
-      classTeacherName: r.teacherFirst ? `${r.teacherFirst} ${r.teacherLast}` : null,
+      classTeacherName: r.teacherFirst
+        ? `${r.teacherFirst} ${r.teacherLast}`
+        : null,
       createdAt: r.createdAt.toISOString(),
     }));
   },
@@ -48,14 +50,21 @@ export const classService = {
         .update(classes)
         .set({
           ...(input.name ? { name: input.name } : {}),
-          ...(input.classTeacherId !== undefined ? { classTeacherId: input.classTeacherId || null } : {}),
+          ...(input.classTeacherId !== undefined
+            ? { classTeacherId: input.classTeacherId || null }
+            : {}),
         })
         .where(eq(classes.id, id)),
     );
   },
 
   async remove(id: string): Promise<void> {
-    await withTenant((tx) => tx.update(classes).set({ deletedAt: new Date() }).where(eq(classes.id, id)));
+    await withTenant((tx) =>
+      tx
+        .update(classes)
+        .set({ deletedAt: new Date() })
+        .where(eq(classes.id, id)),
+    );
   },
 
   async create(input: CreateClassInput): Promise<ClassRow> {
@@ -63,7 +72,12 @@ export const classService = {
     return withTenant(async (tx) => {
       const [row] = await tx
         .insert(classes)
-        .values({ schoolId, orgId, name: input.name, classTeacherId: input.classTeacherId ?? null })
+        .values({
+          schoolId,
+          orgId,
+          name: input.name,
+          classTeacherId: input.classTeacherId ?? null,
+        })
         .returning();
       if (!row) throw new Error("Failed to create class");
       return {

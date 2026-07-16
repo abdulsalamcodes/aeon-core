@@ -4,6 +4,7 @@ import {
   createFeeStructureInput,
   assignFeeInput,
   recordPaymentInput,
+  initiatePaymentInput,
 } from "./finance.service.js";
 
 export const financeRouter: Router = Router();
@@ -21,10 +22,14 @@ financeRouter.post("/fee-structures", async (req, res, next) => {
   try {
     const parsed = createFeeStructureInput.safeParse(req.body);
     if (!parsed.success) {
-      res.status(422).json({ error: "Validation failed", details: parsed.error.flatten() });
+      res
+        .status(422)
+        .json({ error: "Validation failed", details: parsed.error.flatten() });
       return;
     }
-    res.status(201).json({ data: await financeService.createFeeStructure(parsed.data) });
+    res
+      .status(201)
+      .json({ data: await financeService.createFeeStructure(parsed.data) });
   } catch (err) {
     next(err);
   }
@@ -34,7 +39,9 @@ financeRouter.post("/assign", async (req, res, next) => {
   try {
     const parsed = assignFeeInput.safeParse(req.body);
     if (!parsed.success) {
-      res.status(422).json({ error: "Validation failed", details: parsed.error.flatten() });
+      res
+        .status(422)
+        .json({ error: "Validation failed", details: parsed.error.flatten() });
       return;
     }
     res.status(201).json({ data: await financeService.assignFee(parsed.data) });
@@ -47,10 +54,32 @@ financeRouter.post("/payments", async (req, res, next) => {
   try {
     const parsed = recordPaymentInput.safeParse(req.body);
     if (!parsed.success) {
-      res.status(422).json({ error: "Validation failed", details: parsed.error.flatten() });
+      res
+        .status(422)
+        .json({ error: "Validation failed", details: parsed.error.flatten() });
       return;
     }
-    res.status(201).json({ data: await financeService.recordPayment(parsed.data) });
+    res
+      .status(201)
+      .json({ data: await financeService.recordPayment(parsed.data) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Hosted checkout: returns a gateway redirect URL for a fee payment.
+financeRouter.post("/payments/initiate", async (req, res, next) => {
+  try {
+    const parsed = initiatePaymentInput.safeParse(req.body);
+    if (!parsed.success) {
+      res
+        .status(422)
+        .json({ error: "Validation failed", details: parsed.error.flatten() });
+      return;
+    }
+    res
+      .status(201)
+      .json({ data: await financeService.initiateOnlinePayment(parsed.data) });
   } catch (err) {
     next(err);
   }
@@ -64,7 +93,11 @@ financeRouter.post("/payments/webhook/:provider", async (req, res, next) => {
       res.status(400).json({ error: "termId is required" });
       return;
     }
-    const entry = await financeService.recordFromWebhook(req.params.provider, req.body, termId);
+    const entry = await financeService.recordFromWebhook(
+      req.params.provider,
+      req.body,
+      termId,
+    );
     res.json({ data: entry, recorded: Boolean(entry) });
   } catch (err) {
     next(err);
@@ -84,10 +117,18 @@ financeRouter.post("/assign-class", async (req, res, next) => {
   try {
     const { classId, feeStructureId, termId } = req.body ?? {};
     if (!classId || !feeStructureId || !termId) {
-      res.status(400).json({ error: "classId, feeStructureId, termId required" });
+      res
+        .status(400)
+        .json({ error: "classId, feeStructureId, termId required" });
       return;
     }
-    res.json({ data: await financeService.assignToClass({ classId, feeStructureId, termId }) });
+    res.json({
+      data: await financeService.assignToClass({
+        classId,
+        feeStructureId,
+        termId,
+      }),
+    });
   } catch (err) {
     next(err);
   }

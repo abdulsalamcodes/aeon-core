@@ -4,15 +4,17 @@ import { logger } from "./config/logger.js";
 import { authenticate } from "./auth/middleware.js";
 import { tenantResolver } from "./tenant/middleware.js";
 import { HttpError } from "./lib/http-error.js";
+import { corsMiddleware } from "./lib/cors.js";
+import { rateLimit } from "./lib/rate-limit.js";
 import { authRouter } from "./modules/identity/index.js";
-import { publicOrgRouter } from "./modules/org/index.js";
+import { publicOrgRouter, orgRouter } from "./modules/org/index.js";
 import { subjectRouter } from "./modules/subjects/index.js";
 import { classRouter } from "./modules/classes/index.js";
 import { peopleRouter } from "./modules/people/index.js";
 import { academicsRouter } from "./modules/academics/index.js";
 import { academicRouter } from "./modules/academic/index.js";
 import { insightsRouter } from "./modules/insights/index.js";
-import { financeRouter } from "./modules/finance/index.js";
+import { financeRouter, paystackWebhookRouter } from "./modules/finance/index.js";
 import { calendarRouter, timetableRouter } from "./modules/schedule/index.js";
 import { uploadsRouter } from "./modules/uploads/index.js";
 import { notificationsRouter } from "./modules/notifications/index.js";
@@ -21,40 +23,40 @@ import { portalAuthRouter, portalRouter } from "./modules/portal/index.js";
 import { adminAuthRouter, adminRouter } from "./modules/admin/index.js";
 import { registerDefaultProviders } from "./payments/index.js";
 import { registerDefaultChannels } from "./notifications/index.js";
+import { registerDefaultStorage } from "./storage/index.js";
 
 export function createApp(): Express {
   registerDefaultProviders();
   registerDefaultChannels();
+  registerDefaultStorage();
   const app = express();
 
   app.use(pinoHttp({ logger }));
 
-  // CORS — allow the web app (browser) to call the API with its bearer token.
-  // Reflects the request origin; tighten to an allowlist in production.
-  app.use((req: Request, res: Response, next: NextFunction) => {
-    const origin = req.headers.origin;
-    if (origin) res.setHeader("Access-Control-Allow-Origin", origin);
-    res.setHeader("Vary", "Origin");
-    res.setHeader("Access-Control-Allow-Credentials", "true");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-School-Id, X-Org-Id");
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, PUT, DELETE, OPTIONS");
-    if (req.method === "OPTIONS") {
-      res.sendStatus(204);
-      return;
-    }
-    next();
-  });
+  // CORS — reflect allowed browser origins (allowlist enforced in production).
+  app.use(corsMiddleware);
+
+  // Gateway webhooks verify an HMAC over the raw body — mount before json parsing.
+  // Throttle generously: signature-verified, but still an unauthenticated surface.
+  const webhookThrottle = rateLimit({ name: "webhook", max: 120, windowMs: 60_000 });
+  app.use("/v1/public/payments", webhookThrottle, paystackWebhookRouter);
 
   app.use(express.json({ limit: "12mb" })); // generous for photo data URLs + CSV imports
 
   // Liveness — no auth, no tenant.
   app.get("/health", (_req, res) => res.json({ status: "ok" }));
 
+  // Public credential surfaces are brute-forceable — throttle per client IP.
+  // A separate budget per surface avoids one busy surface starving another;
+  // the limit tolerates a morning login rush behind a shared school NAT while
+  // still stopping a scripted brute force. Per-account throttling is roadmap.
+  const loginThrottle = () => rateLimit({ name: "login", max: 30, windowMs: 60_000 });
+
   // Public surface (no auth): login + school lookup for the login pages.
-  app.use("/v1/auth", authRouter);
+  app.use("/v1/auth", loginThrottle(), authRouter);
   app.use("/v1/public", publicOrgRouter);
-  app.use("/v1/portal/auth", portalAuthRouter);
-  app.use("/v1/admin/auth", adminAuthRouter);
+  app.use("/v1/portal/auth", loginThrottle(), portalAuthRouter);
+  app.use("/v1/admin/auth", loginThrottle(), adminAuthRouter);
 
   // Super-admin area: authenticated but NOT tenant-bound (spans all schools).
   // Mounted before the tenant block so tenantResolver doesn't require a school.
@@ -62,6 +64,7 @@ export function createApp(): Express {
 
   // Everything else: authenticate → bind tenant (RLS) → handlers.
   app.use("/v1", authenticate, tenantResolver);
+  app.use("/v1/org", orgRouter);
   app.use("/v1/subjects", subjectRouter);
   app.use("/v1/classes", classRouter);
   app.use("/v1/people", peopleRouter);

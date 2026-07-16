@@ -2,18 +2,117 @@
   "version": "7",
   "dialect": "postgresql",
   "entries": [
-    { "idx": 0, "version": "7", "when": 1717000000000, "tag": "0000_init", "breakpoints": false },
-    { "idx": 1, "version": "7", "when": 1717000001000, "tag": "0001_rls", "breakpoints": false },
-    { "idx": 2, "version": "7", "when": 1717000002000, "tag": "0002_identity", "breakpoints": false },
-    { "idx": 3, "version": "7", "when": 1717000003000, "tag": "0003_identity_rls", "breakpoints": false },
-    { "idx": 4, "version": "7", "when": 1717000004000, "tag": "0004_academics", "breakpoints": false },
-    { "idx": 5, "version": "7", "when": 1717000005000, "tag": "0005_finance", "breakpoints": false },
-    { "idx": 6, "version": "7", "when": 1717000006000, "tag": "0006_platform", "breakpoints": false },
-    { "idx": 7, "version": "7", "when": 1717000007000, "tag": "0007_persons_self", "breakpoints": false },
-    { "idx": 8, "version": "7", "when": 1717000008000, "tag": "0008_student_profiles", "breakpoints": false },
-    { "idx": 9, "version": "7", "when": 1717000009000, "tag": "0009_super_admin", "breakpoints": false },
-    { "idx": 10, "version": "7", "when": 1717000010000, "tag": "0010_calendar_timetable", "breakpoints": false },
-    { "idx": 11, "version": "7", "when": 1717000011000, "tag": "0011_password_reset", "breakpoints": false },
-    { "idx": 12, "version": "7", "when": 1717000012000, "tag": "0012_outbox_actor", "breakpoints": false }
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1717000000000,
+      "tag": "0000_init",
+      "breakpoints": false
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1717000001000,
+      "tag": "0001_rls",
+      "breakpoints": false
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1717000002000,
+      "tag": "0002_identity",
+      "breakpoints": false
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1717000003000,
+      "tag": "0003_identity_rls",
+      "breakpoints": false
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1717000004000,
+      "tag": "0004_academics",
+      "breakpoints": false
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1717000005000,
+      "tag": "0005_finance",
+      "breakpoints": false
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1717000006000,
+      "tag": "0006_platform",
+      "breakpoints": false
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1717000007000,
+      "tag": "0007_persons_self",
+      "breakpoints": false
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1717000008000,
+      "tag": "0008_student_profiles",
+      "breakpoints": false
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1717000009000,
+      "tag": "0009_super_admin",
+      "breakpoints": false
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1717000010000,
+      "tag": "0010_calendar_timetable",
+      "breakpoints": false
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1717000011000,
+      "tag": "0011_password_reset",
+      "breakpoints": false
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1717000012000,
+      "tag": "0012_outbox_actor",
+      "breakpoints": false
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1717000013000,
+      "tag": "0013_school_contact",
+      "breakpoints": false
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1717000014000,
+      "tag": "0014_school_settings",
+      "breakpoints": false
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1717000015000,
+      "tag": "0015_email_verification",
+      "breakpoints": false
+    }
   ]
 }

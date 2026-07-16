@@ -55,3 +55,10 @@ portalRouter.get("/fees", async (req, res, next) => {
     next(err);
   }
 });
+portalRouter.post("/fees/pay", async (req, res, next) => {
+  try {
+    res.status(201).json({ data: await portalService.startFeePayment(req.auth!.studentId!) });
+  } catch (err) {
+    next(err);
+  }
+});

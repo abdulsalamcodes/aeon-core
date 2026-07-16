@@ -15,7 +15,9 @@ classRouter.post("/", async (req, res, next) => {
   try {
     const parsed = createClassInput.safeParse(req.body);
     if (!parsed.success) {
-      res.status(422).json({ error: "Validation failed", details: parsed.error.flatten() });
+      res
+        .status(422)
+        .json({ error: "Validation failed", details: parsed.error.flatten() });
       return;
     }
     res.status(201).json({ data: await classService.create(parsed.data) });

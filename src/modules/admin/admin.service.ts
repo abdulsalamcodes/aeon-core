@@ -1,17 +1,24 @@
 import { z } from "zod";
 import { eq, count, and, desc, sql, isNull } from "drizzle-orm";
 import { db } from "../../db/client.js";
-import { accounts, organizations, schools, studentProfiles, memberships, outboxEvents, notifications } from "../../db/schema/index.js";
+import {
+  accounts,
+  organizations,
+  schools,
+  studentProfiles,
+  memberships,
+  outboxEvents,
+  notifications,
+} from "../../db/schema/index.js";
 import { verifyPassword } from "../../auth/password.js";
 import { signAccessToken } from "../../auth/jwt.js";
 import { HttpError } from "../../lib/http-error.js";
-import { runWithTenant } from "../../tenant/context.js";
 import { provisionService } from "../identity/index.js";
 
-const slugify = (s: string) =>
-  s.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-
-export const adminLoginInput = z.object({ email: z.string().email(), password: z.string().min(1) });
+export const adminLoginInput = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
+});
 export const createInstitutionInput = z.object({
   schoolName: z.string().trim().min(1),
   name: z.string().trim().min(1),
@@ -28,44 +35,77 @@ export const updateAdminInput = z.object({
 });
 
 export const adminService = {
-  async login(input: z.infer<typeof adminLoginInput>): Promise<{ accessToken: string; email: string }> {
-    const [account] = await db.select().from(accounts).where(eq(accounts.email, input.email.toLowerCase())).limit(1);
-    if (!account || !account.isSuperAdmin || account.status !== "active") throw new HttpError(401, "Invalid credentials");
-    if (!(await verifyPassword(input.password, account.passwordHash))) throw new HttpError(401, "Invalid credentials");
-    const accessToken = await signAccessToken({ sub: account.id, schoolId: "", orgId: "", role: "super-admin", orgWide: true });
+  async login(
+    input: z.infer<typeof adminLoginInput>,
+  ): Promise<{ accessToken: string; email: string }> {
+    const [account] = await db
+      .select()
+      .from(accounts)
+      .where(eq(accounts.email, input.email.toLowerCase()))
+      .limit(1);
+    if (!account || !account.isSuperAdmin || account.status !== "active")
+      throw new HttpError(401, "Invalid credentials");
+    if (!(await verifyPassword(input.password, account.passwordHash)))
+      throw new HttpError(401, "Invalid credentials");
+    const accessToken = await signAccessToken({
+      sub: account.id,
+      schoolId: "",
+      orgId: "",
+      role: "super-admin",
+      orgWide: true,
+    });
     return { accessToken, email: account.email };
   },
 
   async listInstitutions() {
     const rows = await db
-      .select({ id: schools.id, name: schools.name, slug: schools.slug, orgId: schools.orgId, orgName: organizations.name, createdAt: schools.createdAt })
+      .select({
+        id: schools.id,
+        name: schools.name,
+        slug: schools.slug,
+        orgId: schools.orgId,
+        orgName: organizations.name,
+        createdAt: schools.createdAt,
+      })
       .from(schools)
       .innerJoin(organizations, eq(organizations.id, schools.orgId));
     const result = [];
     for (const s of rows) {
-      const [stu] = await db.select({ n: count() }).from(studentProfiles).where(eq(studentProfiles.schoolId, s.id));
-      const [stf] = await db.select({ n: count() }).from(memberships).where(and(eq(memberships.schoolId, s.id), sql`role_name != 'student'`));
-      result.push({ ...s, createdAt: s.createdAt.toISOString(), totalStudents: stu?.n ?? 0, totalStaff: stf?.n ?? 0 });
+      const [stu] = await db
+        .select({ n: count() })
+        .from(studentProfiles)
+        .where(eq(studentProfiles.schoolId, s.id));
+      const [stf] = await db
+        .select({ n: count() })
+        .from(memberships)
+        .where(
+          and(eq(memberships.schoolId, s.id), sql`role_name != 'student'`),
+        );
+      result.push({
+        ...s,
+        createdAt: s.createdAt.toISOString(),
+        totalStudents: stu?.n ?? 0,
+        totalStaff: stf?.n ?? 0,
+      });
     }
     return result;
   },
 
   async createInstitution(input: z.infer<typeof createInstitutionInput>) {
-    const slug = slugify(input.schoolName);
-    const [org] = await db.insert(organizations).values({ name: input.schoolName, slug: `${slug}-org` }).returning();
-    const [school] = await db.insert(schools).values({ orgId: org!.id, name: input.schoolName, slug }).returning();
-    await provisionService.ensureSystemRoles();
-    await runWithTenant({ schoolId: school!.id, orgId: org!.id }, () => {
-      const [firstName, ...rest] = input.name.split(" ");
-      return provisionService.addPrincipal({
-        email: input.email,
-        password: input.password,
-        firstName: firstName ?? input.name,
-        lastName: rest.join(" ") || ".",
-        role: "school-admin",
-      });
+    const school = await provisionService.provisionSchool({
+      schoolName: input.schoolName,
+      adminName: input.name,
+      adminEmail: input.email,
+      adminPassword: input.password,
+      emailVerified: true,
     });
-    return { id: school!.id, name: school!.name, slug: school!.slug, orgId: org!.id, loginUrl: `/s/${school!.slug}` };
+    return {
+      id: school.schoolId,
+      name: input.schoolName,
+      slug: school.slug,
+      orgId: school.orgId,
+      loginUrl: `/s/${school.slug}`,
+    };
   },
 
   async dashboard() {
@@ -74,12 +114,27 @@ export const adminService = {
 
     const [inst] = await db.select({ n: count() }).from(schools);
     const [stu] = await db.select({ n: count() }).from(studentProfiles);
-    const [stf] = await db.select({ n: count() }).from(memberships).where(sql`role_name != 'student'`);
-    const [superAdmins] = await db.select({ n: count() }).from(accounts).where(eq(accounts.isSuperAdmin, true));
-    const [newThisMonth] = await db.select({ n: count() }).from(schools).where(sql`created_at >= ${monthAgo.toISOString()}`);
+    const [stf] = await db
+      .select({ n: count() })
+      .from(memberships)
+      .where(sql`role_name != 'student'`);
+    const [superAdmins] = await db
+      .select({ n: count() })
+      .from(accounts)
+      .where(eq(accounts.isSuperAdmin, true));
+    const [newThisMonth] = await db
+      .select({ n: count() })
+      .from(schools)
+      .where(sql`created_at >= ${monthAgo.toISOString()}`);
 
     const activity = await db
-      .select({ id: outboxEvents.id, schoolName: schools.name, eventType: outboxEvents.eventType, actorName: outboxEvents.actorName, createdAt: outboxEvents.createdAt })
+      .select({
+        id: outboxEvents.id,
+        schoolName: schools.name,
+        eventType: outboxEvents.eventType,
+        actorName: outboxEvents.actorName,
+        createdAt: outboxEvents.createdAt,
+      })
       .from(outboxEvents)
       .leftJoin(schools, eq(schools.id, outboxEvents.schoolId))
       .orderBy(desc(outboxEvents.createdAt))
@@ -94,7 +149,11 @@ export const adminService = {
         totalStaff: sql<number>`(SELECT count(*) FROM ${memberships} WHERE ${memberships.schoolId} = ${schools.id} AND role_name != 'student')`,
       })
       .from(schools)
-      .orderBy(desc(sql`(SELECT count(*) FROM ${studentProfiles} WHERE ${studentProfiles.schoolId} = ${schools.id})`))
+      .orderBy(
+        desc(
+          sql`(SELECT count(*) FROM ${studentProfiles} WHERE ${studentProfiles.schoolId} = ${schools.id})`,
+        ),
+      )
       .limit(5);
 
     return {
@@ -103,42 +162,71 @@ export const adminService = {
       totalStaff: stf?.n ?? 0,
       totalSuperAdmins: superAdmins?.n ?? 0,
       newThisMonth: newThisMonth?.n ?? 0,
-      activity: activity.map(r => ({
+      activity: activity.map((r) => ({
         ...r,
         schoolName: r.schoolName ?? "Unknown",
         actorName: r.actorName ?? "System",
         createdAt: r.createdAt.toISOString(),
       })),
-      topInstitutions: top.map(r => ({ ...r, totalStudents: Number(r.totalStudents), totalStaff: Number(r.totalStaff) })),
+      topInstitutions: top.map((r) => ({
+        ...r,
+        totalStudents: Number(r.totalStudents),
+        totalStaff: Number(r.totalStaff),
+      })),
     };
   },
 
   async listAdmins() {
     const rows = await db
-      .select({ id: accounts.id, email: accounts.email, status: accounts.status, createdAt: accounts.createdAt })
+      .select({
+        id: accounts.id,
+        email: accounts.email,
+        status: accounts.status,
+        createdAt: accounts.createdAt,
+      })
       .from(accounts)
       .where(eq(accounts.isSuperAdmin, true))
       .orderBy(desc(accounts.createdAt));
-    return rows.map(r => ({ ...r, createdAt: r.createdAt.toISOString() }));
+    return rows.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() }));
   },
 
   async createAdmin(input: z.infer<typeof createAdminInput>) {
-    const existing = await db.select({ id: accounts.id }).from(accounts).where(eq(accounts.email, input.email.toLowerCase())).limit(1);
-    if (existing.length > 0) throw new HttpError(409, "An account with this email already exists");
+    const existing = await db
+      .select({ id: accounts.id })
+      .from(accounts)
+      .where(eq(accounts.email, input.email.toLowerCase()))
+      .limit(1);
+    if (existing.length > 0)
+      throw new HttpError(409, "An account with this email already exists");
 
     const { hashPassword } = await import("../../auth/password.js");
     const passwordHash = await hashPassword(input.password);
 
     const [account] = await db
       .insert(accounts)
-      .values({ email: input.email.toLowerCase(), passwordHash, isSuperAdmin: true, status: "active", emailVerified: true })
-      .returning({ id: accounts.id, email: accounts.email, status: accounts.status, createdAt: accounts.createdAt });
+      .values({
+        email: input.email.toLowerCase(),
+        passwordHash,
+        isSuperAdmin: true,
+        status: "active",
+        emailVerified: true,
+      })
+      .returning({
+        id: accounts.id,
+        email: accounts.email,
+        status: accounts.status,
+        createdAt: accounts.createdAt,
+      });
 
     return { ...account!, createdAt: account!.createdAt.toISOString() };
   },
 
   async updateAdmin(id: string, input: z.infer<typeof updateAdminInput>) {
-    const [account] = await db.select().from(accounts).where(and(eq(accounts.id, id), eq(accounts.isSuperAdmin, true))).limit(1);
+    const [account] = await db
+      .select()
+      .from(accounts)
+      .where(and(eq(accounts.id, id), eq(accounts.isSuperAdmin, true)))
+      .limit(1);
     if (!account) throw new HttpError(404, "Super admin not found");
 
     const updates: Record<string, unknown> = {};
@@ -150,27 +238,53 @@ export const adminService = {
 
   async getInstitutionDetail(id: string) {
     const [school] = await db
-      .select({ id: schools.id, name: schools.name, slug: schools.slug, orgId: schools.orgId, orgName: organizations.name, createdAt: schools.createdAt })
+      .select({
+        id: schools.id,
+        name: schools.name,
+        slug: schools.slug,
+        orgId: schools.orgId,
+        orgName: organizations.name,
+        createdAt: schools.createdAt,
+      })
       .from(schools)
       .innerJoin(organizations, eq(organizations.id, schools.orgId))
       .where(eq(schools.id, id))
       .limit(1);
     if (!school) throw new HttpError(404, "Institution not found");
 
-    const [stu] = await db.select({ n: count() }).from(studentProfiles).where(eq(studentProfiles.schoolId, school.id));
-    const [stf] = await db.select({ n: count() }).from(memberships).where(and(eq(memberships.schoolId, school.id), sql`role_name != 'student'`));
+    const [stu] = await db
+      .select({ n: count() })
+      .from(studentProfiles)
+      .where(eq(studentProfiles.schoolId, school.id));
+    const [stf] = await db
+      .select({ n: count() })
+      .from(memberships)
+      .where(
+        and(eq(memberships.schoolId, school.id), sql`role_name != 'student'`),
+      );
 
     const recentActivity = await db
-      .select({ id: outboxEvents.id, eventType: outboxEvents.eventType, actorName: outboxEvents.actorName, createdAt: outboxEvents.createdAt })
+      .select({
+        id: outboxEvents.id,
+        eventType: outboxEvents.eventType,
+        actorName: outboxEvents.actorName,
+        createdAt: outboxEvents.createdAt,
+      })
       .from(outboxEvents)
       .where(eq(outboxEvents.schoolId, school.id))
       .orderBy(desc(outboxEvents.createdAt))
       .limit(10);
 
     const staff = await db
-      .select({ id: memberships.id, personId: memberships.personId, roleName: memberships.roleName })
+      .select({
+        id: memberships.id,
+        personId: memberships.personId,
+        roleName: memberships.roleName,
+      })
       .from(memberships)
-      .where(and(eq(memberships.schoolId, school.id), sql`role_name != 'student'`));
+      .where(
+        and(eq(memberships.schoolId, school.id), sql`role_name != 'student'`),
+      );
 
     return {
       id: school.id,
@@ -181,7 +295,7 @@ export const adminService = {
       totalStudents: stu?.n ?? 0,
       totalStaff: stf?.n ?? 0,
       staffCount: staff.length,
-      recentActivity: recentActivity.map(r => ({
+      recentActivity: recentActivity.map((r) => ({
         ...r,
         actorName: r.actorName ?? "System",
         createdAt: r.createdAt.toISOString(),
@@ -190,10 +304,22 @@ export const adminService = {
   },
 
   async health() {
-    const [queueDepth] = await db.select({ n: count() }).from(outboxEvents).where(isNull(outboxEvents.publishedAt));
-    const [notifSent] = await db.select({ n: count() }).from(notifications).where(eq(notifications.status, "sent"));
-    const [notifFailed] = await db.select({ n: count() }).from(notifications).where(eq(notifications.status, "failed"));
-    const [notifQueued] = await db.select({ n: count() }).from(notifications).where(eq(notifications.status, "queued"));
+    const [queueDepth] = await db
+      .select({ n: count() })
+      .from(outboxEvents)
+      .where(isNull(outboxEvents.publishedAt));
+    const [notifSent] = await db
+      .select({ n: count() })
+      .from(notifications)
+      .where(eq(notifications.status, "sent"));
+    const [notifFailed] = await db
+      .select({ n: count() })
+      .from(notifications)
+      .where(eq(notifications.status, "failed"));
+    const [notifQueued] = await db
+      .select({ n: count() })
+      .from(notifications)
+      .where(eq(notifications.status, "queued"));
 
     const channelStats = await db
       .select({ channel: notifications.channel, n: count() })
@@ -207,7 +333,10 @@ export const adminService = {
         sent: notifSent?.n ?? 0,
         failed: notifFailed?.n ?? 0,
         queued: notifQueued?.n ?? 0,
-        byChannel: channelStats.map(r => ({ channel: r.channel, count: r.n })),
+        byChannel: channelStats.map((r) => ({
+          channel: r.channel,
+          count: r.n,
+        })),
       },
       timestamp: new Date().toISOString(),
     };

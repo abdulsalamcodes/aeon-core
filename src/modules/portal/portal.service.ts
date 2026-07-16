@@ -6,6 +6,11 @@ import { runWithTenant, withTenant } from "../../tenant/context.js";
 import { signAccessToken } from "../../auth/jwt.js";
 import { HttpError } from "../../lib/http-error.js";
 import { computeBalances } from "../finance/balance.js";
+import { financeService } from "../finance/index.js";
+import { termService } from "../academic/index.js";
+
+// Paystack currently settles NGN only; other currencies stay on offline payment.
+const PAYABLE_CURRENCY = "NGN";
 
 export const studentLoginInput = z.object({
   studentNumber: z.string().trim().min(1),
@@ -127,4 +132,38 @@ export const portalService = {
     );
     return { entries: rows, balances: computeBalances(rows) };
   },
+
+  /**
+   * Starts a Paystack checkout for the student's own outstanding term fee. The
+   * student, amount, and email are all derived server-side from the token — the
+   * caller cannot pay a different student or a forged amount.
+   */
+  async startFeePayment(studentId: string): Promise<{ redirectUrl: string }> {
+    const term = await termService.current();
+    if (!term) throw new HttpError(409, "No active term to pay for");
+
+    const balances = await financeService.balanceFor(studentId, term.id);
+    const outstanding = balances.find((b) => b.currency === PAYABLE_CURRENCY && b.balanceMinor > 0);
+    if (!outstanding) throw new HttpError(409, "No outstanding fees to pay online");
+
+    const email = await guardianEmail(studentId);
+    if (!email) throw new HttpError(422, "Add a guardian email to your profile before paying online");
+
+    const { redirectUrl } = await financeService.initiateOnlinePayment({
+      studentId,
+      termId: term.id,
+      amountMinor: outstanding.balanceMinor,
+      currency: PAYABLE_CURRENCY,
+      email,
+    });
+    if (!redirectUrl) throw new HttpError(502, "Payment gateway did not return a checkout link");
+    return { redirectUrl };
+  },
 };
+
+async function guardianEmail(studentId: string): Promise<string | null> {
+  const rows = await withTenant((tx) =>
+    tx.select({ email: studentProfiles.guardianEmail }).from(studentProfiles).where(eq(studentProfiles.personId, studentId)).limit(1),
+  );
+  return rows[0]?.email ?? null;
+}

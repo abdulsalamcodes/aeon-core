@@ -2,6 +2,7 @@ import { Router } from "express";
 import { authenticate } from "../../auth/middleware.js";
 import { HttpError } from "../../lib/http-error.js";
 import { authService, loginInput } from "./auth.service.js";
+import { signupService, signupInput } from "./signup.service.js";
 
 /**
  * Auth surface. `/login` is public; `/me` requires a valid token. Neither
@@ -17,6 +18,30 @@ authRouter.post("/login", async (req, res, next) => {
       return;
     }
     res.json({ data: await authService.login(parsed.data) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+authRouter.post("/signup", async (req, res, next) => {
+  try {
+    const parsed = signupInput.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(422).json({ error: "Validation failed", details: parsed.error.flatten() });
+      return;
+    }
+    res.status(201).json({ data: await signupService.signup(parsed.data) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+authRouter.post("/refresh", async (req, res, next) => {
+  try {
+    const refreshToken = String(req.body?.refreshToken ?? "");
+    if (!refreshToken) throw new HttpError(400, "refreshToken is required");
+    const schoolSlug = req.body?.schoolSlug ? String(req.body.schoolSlug) : undefined;
+    res.json({ data: await authService.refresh(refreshToken, schoolSlug) });
   } catch (err) {
     next(err);
   }
@@ -40,9 +65,15 @@ authRouter.post("/reset-password/:token", async (req, res, next) => {
   }
 });
 
-// Email verification: no-op success in the current build (no real users yet).
-authRouter.get("/verify-email/:token", (_req, res) => res.json({ data: null }));
-authRouter.post("/send-verification", (_req, res) => res.json({ data: null }));
+authRouter.post("/verify-email", async (req, res, next) => {
+  try {
+    const token = String(req.body?.token ?? "");
+    if (!token) throw new HttpError(400, "token is required");
+    res.json({ data: await signupService.verifyEmail(token) });
+  } catch (err) {
+    next(err);
+  }
+});
 
 authRouter.patch("/change-password", authenticate, async (req, res, next) => {
   try {

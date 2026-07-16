@@ -18,6 +18,8 @@ export const accounts = pgTable(
     resetTokenHash: text("reset_token_hash"),
     resetExpires: timestamp("reset_expires", { withTimezone: true }),
     emailVerified: boolean("email_verified").notNull().default(false),
+    verifyTokenHash: text("verify_token_hash"),
+    verifyExpires: timestamp("verify_expires", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { feeStructures, type FeeStructure } from "../../db/schema/feeStructures.js";
@@ -7,7 +8,7 @@ import { enrollments } from "../../db/schema/enrollments.js";
 import { currentTenant, withTenant } from "../../tenant/context.js";
 import { emit } from "../../events/outbox.js";
 import { computeBalances, type CurrencyBalance } from "./balance.js";
-import { providerByName } from "../../payments/index.js";
+import { providerByName, providerFor } from "../../payments/index.js";
 
 const ISO_CCY = z.string().length(3).toUpperCase();
 
@@ -21,6 +22,13 @@ export const createFeeStructureInput = z.object({
 export const assignFeeInput = z.object({
   studentId: z.string().uuid(),
   feeStructureId: z.string().uuid(),
+});
+export const initiatePaymentInput = z.object({
+  studentId: z.string().uuid(),
+  termId: z.string().uuid(),
+  amountMinor: z.number().int().positive(),
+  currency: ISO_CCY,
+  email: z.string().email(),
 });
 export const recordPaymentInput = z.object({
   studentId: z.string().uuid(),
@@ -89,6 +97,24 @@ export const financeService = {
         payload: { studentId: input.studentId, termId: fee.termId, amountMinor: fee.amountMinor, currency: fee.currency, schoolId, orgId },
       });
       return entry;
+    });
+  },
+
+  /**
+   * Starts a hosted-checkout fee payment (ADR-11). The tenant + purpose ride
+   * in the gateway metadata so the webhook can credit the right ledger with
+   * no session state on our side.
+   */
+  async initiateOnlinePayment(input: z.infer<typeof initiatePaymentInput>): Promise<{ providerRef: string; redirectUrl?: string }> {
+    const { schoolId, orgId } = currentTenant();
+    const reference = randomUUID();
+    return providerFor(input.currency).initiatePayment({
+      amountMinor: input.amountMinor,
+      currency: input.currency,
+      reference,
+      idempotencyKey: reference,
+      customer: { studentId: input.studentId, email: input.email },
+      metadata: { purpose: "fee", studentId: input.studentId, termId: input.termId, schoolId, orgId },
     });
   },
 

@@ -24,7 +24,9 @@ academicRouter.post("/terms", async (req, res, next) => {
   try {
     const parsed = createTermInput.safeParse(req.body);
     if (!parsed.success) {
-      res.status(422).json({ error: "Validation failed", details: parsed.error.flatten() });
+      res
+        .status(422)
+        .json({ error: "Validation failed", details: parsed.error.flatten() });
       return;
     }
     res.status(201).json({ data: await termService.create(parsed.data) });

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { hashPassword, verifyPassword } from "./password.js";
-import { signAccessToken, verifyAccessToken } from "./jwt.js";
+import { signAccessToken, verifyAccessToken, signRefreshToken, verifyRefreshToken } from "./jwt.js";
 import { loginInput } from "../modules/identity/index.js";
 
 describe("password hashing (scrypt)", () => {
@@ -38,6 +38,26 @@ describe("access token (jose HS256)", () => {
 
   it("rejects a tampered token", async () => {
     await expect(verifyAccessToken("not.a.jwt")).rejects.toBeDefined();
+  });
+});
+
+describe("refresh token", () => {
+  const accountId = "11111111-1111-1111-1111-111111111111";
+
+  it("round-trips the subject", async () => {
+    const token = await signRefreshToken(accountId);
+    expect(await verifyRefreshToken(token)).toBe(accountId);
+  });
+
+  it("rejects an access token presented as a refresh token", async () => {
+    const access = await signAccessToken({
+      sub: accountId,
+      schoolId: "22222222-2222-2222-2222-222222222222",
+      orgId: "33333333-3333-3333-3333-333333333333",
+      role: "teacher",
+      orgWide: false,
+    });
+    await expect(verifyRefreshToken(access)).rejects.toBeDefined();
   });
 });
 

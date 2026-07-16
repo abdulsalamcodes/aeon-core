@@ -1,10 +1,11 @@
 import { z } from "zod";
-import { eq } from "drizzle-orm";
+import { asc, desc, eq } from "drizzle-orm";
 import {
   workflowDefinitions,
   workflowInstances,
   workflowTasks,
   type WorkflowStep,
+  type WorkflowDefinition,
   type WorkflowInstance,
   type WorkflowTask,
 } from "../../db/schema/workflows.js";
@@ -28,7 +29,38 @@ export const decideInput = z.object({
 
 export const WORKFLOW_COMPLETED = "WorkflowCompleted";
 
+export type TaskStatus = WorkflowTask["status"];
+
+/** A pending/decided task enriched with what it approves and which chain owns it. */
+export interface WorkflowTaskView extends WorkflowTask {
+  workflowKey: string;
+  subjectRef: string;
+}
+
 export const workflowService = {
+  async listDefinitions(): Promise<WorkflowDefinition[]> {
+    return withTenant((tx) =>
+      tx.select().from(workflowDefinitions).orderBy(asc(workflowDefinitions.key)),
+    );
+  },
+
+  async listTasks(status?: TaskStatus): Promise<WorkflowTaskView[]> {
+    return withTenant(async (tx) => {
+      const base = tx
+        .select({
+          task: workflowTasks,
+          workflowKey: workflowDefinitions.key,
+          subjectRef: workflowInstances.subjectRef,
+        })
+        .from(workflowTasks)
+        .innerJoin(workflowInstances, eq(workflowTasks.instanceId, workflowInstances.id))
+        .innerJoin(workflowDefinitions, eq(workflowInstances.definitionId, workflowDefinitions.id))
+        .orderBy(desc(workflowTasks.createdAt));
+      const rows = status ? await base.where(eq(workflowTasks.status, status)) : await base;
+      return rows.map((r) => ({ ...r.task, workflowKey: r.workflowKey, subjectRef: r.subjectRef }));
+    });
+  },
+
   async define(input: z.infer<typeof defineInput>): Promise<void> {
     const { schoolId } = currentTenant();
     await withTenant((tx) =>

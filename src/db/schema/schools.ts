@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
 import { organizations } from "./organizations.js";
 
 /**
@@ -15,6 +15,10 @@ export const schools = pgTable(
       .references(() => organizations.id, { onDelete: "restrict" }),
     name: text("name").notNull(),
     slug: text("slug").notNull(),
+    email: text("email"),
+    phone: text("phone"),
+    address: text("address"),
+    settings: jsonb("settings").notNull().default({}).$type<Record<string, unknown>>(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({

@@ -1,8 +1,23 @@
 import { eq, and, isNull } from "drizzle-orm";
 import { db } from "../../db/client.js";
-import { roles, persons, memberships } from "../../db/schema/index.js";
-import { currentTenant, withTenant } from "../../tenant/context.js";
+import { roles, persons, memberships, organizations, schools } from "../../db/schema/index.js";
+import { currentTenant, runWithTenant, withTenant } from "../../tenant/context.js";
 import { authService } from "./auth.service.js";
+
+const slugify = (value: string) =>
+  value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+
+/** Finds an unused school slug, suffixing `-2`, `-3`… on collision. */
+async function uniqueSchoolSlug(name: string): Promise<string> {
+  const base = slugify(name) || "school";
+  let candidate = base;
+  let attempt = 1;
+  while ((await db.select({ id: schools.id }).from(schools).where(eq(schools.slug, candidate)).limit(1)).length > 0) {
+    attempt += 1;
+    candidate = `${base}-${attempt}`;
+  }
+  return candidate;
+}
 
 /** System role names seeded once, globally (schoolId = null). */
 export const SYSTEM_ROLES = ["super-admin", "school-admin", "teacher", "student", "guardian"] as const;
@@ -35,11 +50,12 @@ export const provisionService = {
     lastName: string;
     role: SystemRole;
     orgWide?: boolean;
+    emailVerified?: boolean;
   }): Promise<{ accountId: string; personId: string; membershipId: string }> {
     const { schoolId, orgId } = currentTenant();
 
     // 1) Global login identity (outside tenant).
-    const account = await authService.createAccount(params.email, params.password);
+    const account = await authService.createAccount(params.email, params.password, params.emailVerified ?? true);
 
     // 2) Resolve the system role id (global).
     const [role] = await db
@@ -73,5 +89,36 @@ export const provisionService = {
 
       return { accountId: account.id, personId: person.id, membershipId: membership.id };
     });
+  },
+
+  /**
+   * Creates a brand-new school with its own org and a school-admin principal —
+   * the shared primitive behind both assisted onboarding and self-service
+   * signup. The school's slug is derived from its name and de-duplicated.
+   */
+  async provisionSchool(params: {
+    schoolName: string;
+    adminName: string;
+    adminEmail: string;
+    adminPassword: string;
+    emailVerified: boolean;
+  }): Promise<{ schoolId: string; orgId: string; slug: string; accountId: string }> {
+    const slug = await uniqueSchoolSlug(params.schoolName);
+    const [org] = await db.insert(organizations).values({ name: params.schoolName, slug: `${slug}-org` }).returning();
+    const [school] = await db.insert(schools).values({ orgId: org!.id, name: params.schoolName, slug }).returning();
+    await this.ensureSystemRoles();
+
+    const [firstName, ...rest] = params.adminName.trim().split(/\s+/);
+    const principal = await runWithTenant({ schoolId: school!.id, orgId: org!.id }, () =>
+      this.addPrincipal({
+        email: params.adminEmail,
+        password: params.adminPassword,
+        firstName: firstName ?? params.adminName,
+        lastName: rest.join(" ") || ".",
+        role: "school-admin",
+        emailVerified: params.emailVerified,
+      }),
+    );
+    return { schoolId: school!.id, orgId: org!.id, slug, accountId: principal.accountId };
   },
 };

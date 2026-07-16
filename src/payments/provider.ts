@@ -5,7 +5,8 @@
  * change to finance/ledger code. A school picks a provider per currency.
  */
 export interface PayerRef {
-  studentId: string;
+  /** Absent for non-student payments (e.g. a school's subscription). */
+  studentId?: string;
   email?: string;
 }
 
