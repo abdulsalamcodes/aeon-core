@@ -5,6 +5,7 @@ import { InlineStorageProvider } from "./inline-provider.js";
 
 export * from "./provider.js";
 export { decodeDataUrl } from "./data-url.js";
+export { isSupportedImageType } from "./image-types.js";
 export { R2StorageProvider, type R2Config } from "./r2-provider.js";
 export { InlineStorageProvider } from "./inline-provider.js";
 

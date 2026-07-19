@@ -1,11 +1,11 @@
 import { Router } from "express";
+import { financeService } from "./finance.service.js";
 import {
-  financeService,
   createFeeStructureInput,
   assignFeeInput,
   recordPaymentInput,
   initiatePaymentInput,
-} from "./finance.service.js";
+} from "./finance.schema.js";
 
 export const financeRouter: Router = Router();
 

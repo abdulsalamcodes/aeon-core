@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { feeStructures, type FeeStructure } from "../../db/schema/feeStructures.js";
 import { ledgerEntries, type LedgerEntry } from "../../db/schema/ledgerEntries.js";
@@ -9,42 +8,19 @@ import { currentTenant, withTenant } from "../../tenant/context.js";
 import { emit } from "../../events/outbox.js";
 import { computeBalances, type CurrencyBalance } from "./balance.js";
 import { providerByName, providerFor } from "../../payments/index.js";
-
-const ISO_CCY = z.string().length(3).toUpperCase();
-
-export const createFeeStructureInput = z.object({
-  termId: z.string().uuid(),
-  name: z.string().trim().min(1),
-  amountMinor: z.number().int().positive(),
-  currency: ISO_CCY,
-  isDefault: z.boolean().optional(),
-});
-export const assignFeeInput = z.object({
-  studentId: z.string().uuid(),
-  feeStructureId: z.string().uuid(),
-});
-export const initiatePaymentInput = z.object({
-  studentId: z.string().uuid(),
-  termId: z.string().uuid(),
-  amountMinor: z.number().int().positive(),
-  currency: ISO_CCY,
-  email: z.string().email(),
-});
-export const recordPaymentInput = z.object({
-  studentId: z.string().uuid(),
-  termId: z.string().uuid(),
-  amountMinor: z.number().int().positive(),
-  currency: ISO_CCY,
-  idempotencyKey: z.string().min(8),
-  method: z.enum(["cash", "transfer", "card", "mobile-money"]).default("cash"),
-  reference: z.string().optional(),
-});
+import type {
+  CreateFeeStructureInput,
+  AssignFeeInput,
+  InitiatePaymentInput,
+  RecordPaymentInput,
+  AssignClassInput,
+} from "./finance.schema.js";
 
 export const FEE_ASSIGNED = "FeeAssigned";
 export const PAYMENT_RECORDED = "PaymentRecorded";
 
 export const financeService = {
-  async createFeeStructure(input: z.infer<typeof createFeeStructureInput>): Promise<FeeStructure> {
+  async createFeeStructure(input: CreateFeeStructureInput): Promise<FeeStructure> {
     const { schoolId, orgId } = currentTenant();
     return withTenant(async (tx) => {
       const [row] = await tx
@@ -65,7 +41,7 @@ export const financeService = {
   },
 
   /** Assigns a fee to a student = a DEBIT ledger entry (ADR-8). Emits FeeAssigned. */
-  async assignFee(input: z.infer<typeof assignFeeInput>): Promise<LedgerEntry> {
+  async assignFee(input: AssignFeeInput): Promise<LedgerEntry> {
     const { schoolId, orgId } = currentTenant();
     return withTenant(async (tx) => {
       const [fee] = await tx
@@ -105,7 +81,7 @@ export const financeService = {
    * in the gateway metadata so the webhook can credit the right ledger with
    * no session state on our side.
    */
-  async initiateOnlinePayment(input: z.infer<typeof initiatePaymentInput>): Promise<{ providerRef: string; redirectUrl?: string }> {
+  async initiateOnlinePayment(input: InitiatePaymentInput): Promise<{ providerRef: string; redirectUrl?: string }> {
     const { schoolId, orgId } = currentTenant();
     const reference = randomUUID();
     return providerFor(input.currency).initiatePayment({
@@ -123,7 +99,7 @@ export const financeService = {
    * (school, idempotencyKey) index means a webhook replayed N times nets ONE
    * entry. Returns the entry; on a duplicate key it returns the existing one.
    */
-  async recordPayment(input: z.infer<typeof recordPaymentInput>): Promise<LedgerEntry> {
+  async recordPayment(input: RecordPaymentInput): Promise<LedgerEntry> {
     const { schoolId, orgId } = currentTenant();
     return withTenant(async (tx) => {
       const inserted = await tx
@@ -227,7 +203,7 @@ export const financeService = {
   },
 
   /** Assigns a fee structure to every student enrolled in a class for the term. */
-  async assignToClass(input: { classId: string; feeStructureId: string; termId: string }): Promise<{ assigned: number; skipped: number; total: number }> {
+  async assignToClass(input: AssignClassInput): Promise<{ assigned: number; skipped: number; total: number }> {
     const studentIds = await withTenant((tx) =>
       tx
         .select({ studentId: enrollments.studentId })

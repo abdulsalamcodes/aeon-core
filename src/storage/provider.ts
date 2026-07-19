@@ -9,10 +9,31 @@ export interface DecodedImage {
   readonly bytes: Buffer;
 }
 
+export interface UploadRequest {
+  readonly contentType: string;
+  readonly prefix: string;
+}
+
+/**
+ * A one-time, short-lived target the browser uploads bytes to directly, so the
+ * file never passes through the API. `publicUrl` is where the object is read
+ * afterwards; `headers` must be sent verbatim on the PUT.
+ */
+export interface PresignedUpload {
+  readonly uploadUrl: string;
+  readonly publicUrl: string;
+  readonly headers: Record<string, string>;
+  readonly expiresInSeconds: number;
+}
+
 export interface ObjectStorageProvider {
   readonly name: string;
+  /** Whether this backend can issue presigned URLs for direct browser uploads. */
+  readonly supportsDirectUpload: boolean;
   /** Persists an image under `prefix/` and returns its retrievable URL. */
   putImage(image: DecodedImage, prefix: string): Promise<string>;
+  /** Issues a presigned target for a direct browser → storage upload. */
+  createImageUploadTarget(request: UploadRequest): Promise<PresignedUpload>;
 }
 
 /**

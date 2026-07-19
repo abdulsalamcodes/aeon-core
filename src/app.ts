@@ -25,6 +25,9 @@ import { registerDefaultProviders } from "./payments/index.js";
 import { registerDefaultChannels } from "./notifications/index.js";
 import { registerDefaultStorage } from "./storage/index.js";
 
+// Headroom for bulk text payloads (CSV import, dev-only inline photo data URLs).
+const BULK_JSON_LIMIT = "5mb";
+
 export function createApp(): Express {
   registerDefaultProviders();
   registerDefaultChannels();
@@ -41,7 +44,14 @@ export function createApp(): Express {
   const webhookThrottle = rateLimit({ name: "webhook", max: 120, windowMs: 60_000 });
   app.use("/v1/public/payments", webhookThrottle, paystackWebhookRouter);
 
-  app.use(express.json({ limit: "12mb" })); // generous for photo data URLs + CSV imports
+  // Bulk endpoints carry large text bodies (a whole CSV / a dev-only photo data
+  // URL), so they opt into a higher limit before the default parser. Production
+  // photo uploads go directly to R2, so the general API keeps Express's standard
+  // 100 KB default.
+  app.use("/v1/people/students/import", express.json({ limit: BULK_JSON_LIMIT }));
+  app.use("/v1/uploads/photo", express.json({ limit: BULK_JSON_LIMIT }));
+
+  app.use(express.json());
 
   // Liveness — no auth, no tenant.
   app.get("/health", (_req, res) => res.json({ status: "ok" }));
@@ -79,10 +89,16 @@ export function createApp(): Express {
   app.use("/v1/workflows", workflowRouter);
   app.use("/v1/portal", portalRouter);
 
-  // Central error handler — maps HttpError to its status.
+  // Central error handler — maps HttpError and framework 4xx errors (e.g. a
+  // too-large or malformed body) to their status; everything else is a 500.
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     if (err instanceof HttpError) {
       res.status(err.status).json({ error: err.message });
+      return;
+    }
+    const clientStatus = clientErrorStatus(err);
+    if (clientStatus) {
+      res.status(clientStatus).json({ error: (err as Error).message });
       return;
     }
     logger.error({ err }, "request failed");
@@ -90,4 +106,10 @@ export function createApp(): Express {
   });
 
   return app;
+}
+
+/** Reads the HTTP status Express middleware (body-parser, etc.) attach to 4xx errors. */
+function clientErrorStatus(err: unknown): number | null {
+  const status = (err as { status?: number; statusCode?: number }).status ?? (err as { statusCode?: number }).statusCode;
+  return typeof status === "number" && status >= 400 && status < 500 ? status : null;
 }

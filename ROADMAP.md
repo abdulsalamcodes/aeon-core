@@ -64,13 +64,20 @@ An in-memory fixed-window limiter protects the login and webhook surfaces
 ## Object storage
 
 Photo uploads use a provider abstraction (`src/storage/`) with a Cloudflare R2
-implementation and an inline data-URL fallback for dev.
+implementation and an inline data-URL fallback for dev. When R2 is configured,
+the browser uploads bytes **directly to R2 via a presigned URL** — they never
+pass through the API (`POST /v1/uploads/photo/presign`).
 
 - **Next** — Configure R2 credentials in production (`R2_*` env vars).
+- **Next** — Enforce a max object size on direct uploads. Presigned PUT URLs do
+  not cap size; use a presigned POST policy (or a bucket lifecycle/size rule).
+- **Planned** — Now that photos skip the API, the `express.json` 12 MB limit is
+  only needed for CSV imports and the dev inline-upload fallback — it can be
+  lowered once CSV import sizing is confirmed.
 - **Planned** — Add further `ObjectStorageProvider` implementations (AWS S3,
   MinIO) if a deployment needs them — the interface already supports it.
-- **Exploring** — CDN in front of the public bucket; signed URLs for private
-  documents.
+- **Exploring** — CDN in front of the public bucket; signed URLs for reading
+  private documents.
 
 ## Billing enforcement
 

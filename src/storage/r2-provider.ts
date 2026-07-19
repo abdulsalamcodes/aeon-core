@@ -1,16 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-import type { DecodedImage, ObjectStorageProvider } from "./provider.js";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import type { DecodedImage, ObjectStorageProvider, PresignedUpload, UploadRequest } from "./provider.js";
+import { imageExtension } from "./image-types.js";
 
 // R2 ignores region but the S3 client requires one; "auto" is Cloudflare's convention.
 const R2_REGION = "auto";
-const DEFAULT_EXTENSION = "bin";
-const EXTENSION_BY_CONTENT_TYPE: Record<string, string> = {
-  "image/png": "png",
-  "image/jpeg": "jpg",
-  "image/webp": "webp",
-  "image/gif": "gif",
-};
+const UPLOAD_URL_TTL_SECONDS = 300;
 
 export interface R2Config {
   accountId: string;
@@ -23,6 +19,7 @@ export interface R2Config {
 /** Cloudflare R2 via its S3-compatible API (ADR-12). */
 export class R2StorageProvider implements ObjectStorageProvider {
   readonly name = "r2";
+  readonly supportsDirectUpload = true;
   private readonly client: S3Client;
 
   constructor(private readonly config: R2Config) {
@@ -34,19 +31,30 @@ export class R2StorageProvider implements ObjectStorageProvider {
   }
 
   async putImage(image: DecodedImage, prefix: string): Promise<string> {
-    const key = `${prefix}/${randomUUID()}.${extensionFor(image.contentType)}`;
+    const key = imageKey(prefix, image.contentType);
     await this.client.send(
-      new PutObjectCommand({
-        Bucket: this.config.bucket,
-        Key: key,
-        Body: image.bytes,
-        ContentType: image.contentType,
-      }),
+      new PutObjectCommand({ Bucket: this.config.bucket, Key: key, Body: image.bytes, ContentType: image.contentType }),
     );
+    return this.publicUrl(key);
+  }
+
+  async createImageUploadTarget(request: UploadRequest): Promise<PresignedUpload> {
+    const key = imageKey(request.prefix, request.contentType);
+    const command = new PutObjectCommand({ Bucket: this.config.bucket, Key: key, ContentType: request.contentType });
+    const uploadUrl = await getSignedUrl(this.client, command, { expiresIn: UPLOAD_URL_TTL_SECONDS });
+    return {
+      uploadUrl,
+      publicUrl: this.publicUrl(key),
+      headers: { "Content-Type": request.contentType },
+      expiresInSeconds: UPLOAD_URL_TTL_SECONDS,
+    };
+  }
+
+  private publicUrl(key: string): string {
     return `${this.config.publicBaseUrl.replace(/\/$/, "")}/${key}`;
   }
 }
 
-function extensionFor(contentType: string): string {
-  return EXTENSION_BY_CONTENT_TYPE[contentType] ?? DEFAULT_EXTENSION;
+function imageKey(prefix: string, contentType: string): string {
+  return `${prefix}/${randomUUID()}.${imageExtension(contentType)}`;
 }

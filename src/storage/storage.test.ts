@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { decodeDataUrl } from "./data-url.js";
 import { InlineStorageProvider } from "./inline-provider.js";
+import { isSupportedImageType, imageExtension } from "./image-types.js";
 import { HttpError } from "../lib/http-error.js";
 
 const sentCommands: unknown[] = [];
@@ -24,11 +25,29 @@ describe("decodeDataUrl", () => {
   });
 });
 
+describe("image types", () => {
+  it("accepts supported image content types and rejects others", () => {
+    expect(isSupportedImageType("image/png")).toBe(true);
+    expect(isSupportedImageType("application/pdf")).toBe(false);
+  });
+
+  it("maps content types to extensions with a safe fallback", () => {
+    expect(imageExtension("image/jpeg")).toBe("jpg");
+    expect(imageExtension("application/zip")).toBe("bin");
+  });
+});
+
 describe("InlineStorageProvider", () => {
   it("round-trips the image back to the same data URL", async () => {
     const provider = new InlineStorageProvider();
     const url = await provider.putImage(decodeDataUrl(PNG_DATA_URL), "photos");
     expect(url).toBe(PNG_DATA_URL);
+  });
+
+  it("cannot issue direct uploads", async () => {
+    const provider = new InlineStorageProvider();
+    expect(provider.supportsDirectUpload).toBe(false);
+    await expect(provider.createImageUploadTarget()).rejects.toThrow(HttpError);
   });
 });
 
