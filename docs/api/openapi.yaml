@@ -1,0 +1,3327 @@
+openapi: "3.0.3"
+info:
+  title: Aeon School Management API
+  version: 1.0.0
+  description: |
+    Backend API for the Aeon school management platform.
+
+    **Auth flow:** Most endpoints require a JWT access token (`Authorization: Bearer <token>`) obtained
+    from `POST /v1/auth/login` or `POST /v1/admin/auth/login`. The tenant (school + org) is resolved
+    from the token automatically — no tenant-ID header needed.
+
+    **Student portal:** Students authenticate via `POST /v1/portal/auth/student-login` using their
+    admission number + date of birth.
+
+    **Error shape (422):**
+    ```json
+    { "error": "Validation failed", "details": { "fieldErrors": { "name": ["Required"] }, "formErrors": [] } }
+    ```
+
+    **Error shape (4xx/5xx):**
+    ```json
+    { "error": "message" }
+    ```
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+  - url: https://api.aeon.app/v1
+    description: Production
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Access token from `/v1/auth/login` or `/v1/admin/auth/login`.
+
+  schemas:
+    # ─── Generic wrappers ──────────────────────────────────────────────
+    SuccessResponse:
+      type: object
+      properties:
+        data: {}
+      description: Most successful responses wrap payload under a `data` key.
+    ListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+    ValidationError:
+      type: object
+      properties:
+        error:
+          type: string
+          example: Validation failed
+        details:
+          type: object
+          properties:
+            fieldErrors:
+              type: object
+              additionalProperties:
+                type: array
+                items:
+                  type: string
+            formErrors:
+              type: array
+              items:
+                type: string
+
+    # ─── Auth / Identity ───────────────────────────────────────────────
+    LoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+        schoolId:
+          type: string
+          format: uuid
+          description: Pick a specific school (multi-school accounts).
+        schoolSlug:
+          type: string
+    LoginResult:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        accountId:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        active:
+          $ref: "#/components/schemas/MembershipSummary"
+        memberships:
+          type: array
+          items:
+            $ref: "#/components/schemas/MembershipSummary"
+    MembershipSummary:
+      type: object
+      properties:
+        schoolId:
+          type: string
+          format: uuid
+        orgId:
+          type: string
+          format: uuid
+        schoolName:
+          type: string
+        schoolSlug:
+          type: string
+        role:
+          type: string
+        orgWide:
+          type: boolean
+    SignupInput:
+      type: object
+      required: [schoolName, adminName, email, password, plan]
+      properties:
+        schoolName:
+          type: string
+          minLength: 2
+        adminName:
+          type: string
+          minLength: 2
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        plan:
+          type: string
+          enum: [starter, growth]
+    SignupResult:
+      type: object
+      properties:
+        schoolSlug:
+          type: string
+        plan:
+          type: string
+        paymentRequired:
+          type: boolean
+    RefreshTokenInput:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+        schoolSlug:
+          type: string
+    VerifyEmailInput:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+    ForgotPasswordInput:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+    ResetPasswordInput:
+      type: object
+      properties:
+        password:
+          type: string
+    ChangePasswordInput:
+      type: object
+      properties:
+        currentPassword:
+          type: string
+        password:
+          type: string
+    MeResult:
+      type: object
+      properties:
+        accountId:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        active:
+          $ref: "#/components/schemas/MembershipSummary"
+        memberships:
+          type: array
+          items:
+            $ref: "#/components/schemas/MembershipSummary"
+
+    # ─── Org / School ──────────────────────────────────────────────────
+    SchoolPublic:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        logoUrl:
+          type: string
+          nullable: true
+    SchoolSettings:
+      type: object
+      properties:
+        billing:
+          type: object
+          properties:
+            plan:
+              type: string
+            status:
+              type: string
+    CheckoutPlanInput:
+      type: object
+      required: [plan]
+      properties:
+        plan:
+          type: string
+
+    # ─── Subjects ──────────────────────────────────────────────────────
+    CreateSubjectInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+    Subject:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    # ─── Classes ───────────────────────────────────────────────────────
+    CreateClassInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        classTeacherId:
+          type: string
+          format: uuid
+    Class:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        classTeacherId:
+          type: string
+          format: uuid
+          nullable: true
+        classTeacherName:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    # ─── People ────────────────────────────────────────────────────────
+    CreateStudentInput:
+      type: object
+      required: [firstName, lastName]
+      properties:
+        firstName:
+          type: string
+          minLength: 1
+        lastName:
+          type: string
+          minLength: 1
+        studentNumber:
+          type: string
+        gender:
+          type: string
+          enum: [male, female]
+        dob:
+          type: string
+        guardianName:
+          type: string
+        guardianPhone:
+          type: string
+        guardianEmail:
+          type: string
+        classId:
+          type: string
+          format: uuid
+          description: Enrol immediately (fires StudentEnrolled ripple).
+        termId:
+          type: string
+          format: uuid
+    Student:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        firstName:
+          type: string
+        lastName:
+          type: string
+        studentNumber:
+          type: string
+          nullable: true
+        gender:
+          type: string
+          nullable: true
+        guardianName:
+          type: string
+          nullable: true
+        guardianPhone:
+          type: string
+          nullable: true
+        guardianEmail:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+    CsvImportInput:
+      type: object
+      required: [csv]
+      properties:
+        csv:
+          type: string
+          minLength: 1
+    CsvImportResult:
+      type: object
+      properties:
+        succeeded:
+          type: integer
+        failed:
+          type: array
+          items:
+            type: object
+            properties:
+              row:
+                type: integer
+              error:
+                type: string
+    CreateStaffInput:
+      type: object
+      required: [name, email, password]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        role:
+          type: string
+          default: teacher
+    Staff:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+    EnrollInput:
+      type: object
+      required: [studentId, classId, termId]
+      properties:
+        studentId:
+          type: string
+          format: uuid
+        classId:
+          type: string
+          format: uuid
+        termId:
+          type: string
+          format: uuid
+    Enrollment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        studentId:
+          type: string
+          format: uuid
+        classId:
+          type: string
+          format: uuid
+        termId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+    LinkGuardianInput:
+      type: object
+      required: [guardianId, studentId]
+      properties:
+        guardianId:
+          type: string
+          format: uuid
+        studentId:
+          type: string
+          format: uuid
+        relationship:
+          type: string
+          maxLength: 60
+    PromoteInput:
+      type: object
+      required: [fromClassId, toClassId]
+      properties:
+        fromClassId:
+          type: string
+          format: uuid
+        toClassId:
+          type: string
+          format: uuid
+        termId:
+          type: string
+          format: uuid
+        studentIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        promoteAll:
+          type: boolean
+    PromoteResult:
+      type: object
+      properties:
+        promoted:
+          type: integer
+
+    # ─── Academics ─────────────────────────────────────────────────────
+    RegisterQuery:
+      type: object
+      properties:
+        classId:
+          type: string
+          format: uuid
+        date:
+          type: string
+    AttendanceRecord:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        studentId:
+          type: string
+          format: uuid
+        classId:
+          type: string
+          format: uuid
+        date:
+          type: string
+        status:
+          type: string
+          enum: [present, absent, late, excused, unmarked]
+    MarkInput:
+      type: object
+      required: [attendanceId, status]
+      properties:
+        attendanceId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [present, absent, late, excused, unmarked]
+    BulkMarkInput:
+      type: object
+      required: [classId, termId, date, records]
+      properties:
+        classId:
+          type: string
+          format: uuid
+        termId:
+          type: string
+          format: uuid
+        date:
+          type: string
+        records:
+          type: array
+          items:
+            type: object
+            properties:
+              studentId:
+                type: string
+                format: uuid
+              status:
+                type: string
+                enum: [present, absent, late, excused, unmarked]
+    RecordGradeInput:
+      type: object
+      required: [studentId, subjectId, termId, caScore, examScore]
+      properties:
+        studentId:
+          type: string
+          format: uuid
+        subjectId:
+          type: string
+          format: uuid
+        termId:
+          type: string
+          format: uuid
+        caScore:
+          type: integer
+          minimum: 0
+          maximum: 100
+        examScore:
+          type: integer
+          minimum: 0
+          maximum: 100
+    Grade:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        studentId:
+          type: string
+          format: uuid
+        subjectId:
+          type: string
+          format: uuid
+        termId:
+          type: string
+          format: uuid
+        caScore:
+          type: integer
+        examScore:
+          type: integer
+    GradeClassQuery:
+      type: object
+      properties:
+        classId:
+          type: string
+          format: uuid
+        termId:
+          type: string
+          format: uuid
+    GradeStudentQuery:
+      type: object
+      properties:
+        studentId:
+          type: string
+          format: uuid
+        termId:
+          type: string
+          format: uuid
+
+    # ─── Terms ─────────────────────────────────────────────────────────
+    CreateTermInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        startDate:
+          type: string
+        endDate:
+          type: string
+        isCurrent:
+          type: boolean
+    Term:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        startDate:
+          type: string
+          nullable: true
+        endDate:
+          type: string
+          nullable: true
+        isCurrent:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    # ─── Finance ───────────────────────────────────────────────────────
+    CreateFeeStructureInput:
+      type: object
+      required: [termId, name, amountMinor, currency]
+      properties:
+        termId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+        amountMinor:
+          type: integer
+          exclusiveMinimum: 0
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+        isDefault:
+          type: boolean
+    FeeStructure:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        termId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        amountMinor:
+          type: integer
+        currency:
+          type: string
+        isDefault:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+    AssignFeeInput:
+      type: object
+      required: [studentId, feeStructureId]
+      properties:
+        studentId:
+          type: string
+          format: uuid
+        feeStructureId:
+          type: string
+          format: uuid
+    AssignClassInput:
+      type: object
+      required: [classId, feeStructureId, termId]
+      properties:
+        classId:
+          type: string
+          format: uuid
+        feeStructureId:
+          type: string
+          format: uuid
+        termId:
+          type: string
+          format: uuid
+    RecordPaymentInput:
+      type: object
+      required: [studentId, termId, amountMinor, currency, idempotencyKey]
+      properties:
+        studentId:
+          type: string
+          format: uuid
+        termId:
+          type: string
+          format: uuid
+        amountMinor:
+          type: integer
+          exclusiveMinimum: 0
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+        idempotencyKey:
+          type: string
+          minLength: 8
+        method:
+          type: string
+          enum: [cash, transfer, card, mobile-money]
+          default: cash
+        reference:
+          type: string
+    InitiatePaymentInput:
+      type: object
+      required: [studentId, termId, amountMinor, currency, email]
+      properties:
+        studentId:
+          type: string
+          format: uuid
+        termId:
+          type: string
+          format: uuid
+        amountMinor:
+          type: integer
+          exclusiveMinimum: 0
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+        email:
+          type: string
+          format: email
+    InitiatePaymentResult:
+      type: object
+      properties:
+        providerRef:
+          type: string
+        redirectUrl:
+          type: string
+    WebhookTermId:
+      type: object
+      required: [termId]
+      properties:
+        termId:
+          type: string
+          format: uuid
+    StudentTermQuery:
+      type: object
+      properties:
+        studentId:
+          type: string
+          format: uuid
+        termId:
+          type: string
+          format: uuid
+    TermIdQuery:
+      type: object
+      properties:
+        termId:
+          type: string
+          format: uuid
+    LedgerEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        studentId:
+          type: string
+          format: uuid
+        termId:
+          type: string
+          format: uuid
+        direction:
+          type: string
+          enum: [debit, credit]
+        kind:
+          type: string
+        amountMinor:
+          type: integer
+        currency:
+          type: string
+        reference:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+    OutstandingBalance:
+      type: object
+      properties:
+        studentId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        amountDue:
+          type: number
+        amountPaid:
+          type: number
+        balance:
+          type: number
+        status:
+          type: string
+          enum: [paid, partial, unpaid]
+
+    # ─── Schedule ──────────────────────────────────────────────────────
+    CreateEventInput:
+      type: object
+      required: [title, startDate, endDate, type]
+      properties:
+        title:
+          type: string
+          minLength: 1
+        description:
+          type: string
+        startDate:
+          type: string
+        endDate:
+          type: string
+        type:
+          type: string
+          enum: [holiday, exam, event, term-start, term-end]
+    CalendarEvent:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        startDate:
+          type: string
+        endDate:
+          type: string
+        type:
+          type: string
+        schoolId:
+          type: string
+          format: uuid
+    TimetableQuery:
+      type: object
+      properties:
+        classId:
+          type: string
+          format: uuid
+        termId:
+          type: string
+          format: uuid
+    UpsertTimetableInput:
+      type: object
+      required: [classId, termId, schedule]
+      properties:
+        classId:
+          type: string
+          format: uuid
+        termId:
+          type: string
+          format: uuid
+        schedule:
+          type: array
+          items:
+            type: object
+            properties:
+              day:
+                type: string
+              periods:
+                type: array
+    Timetable:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        classId:
+          type: string
+          format: uuid
+        termId:
+          type: string
+          format: uuid
+        schedule:
+          type: array
+
+    # ─── Uploads ───────────────────────────────────────────────────────
+    PresignInput:
+      type: object
+      required: [contentType]
+      properties:
+        contentType:
+          type: string
+    PhotoUploadInput:
+      type: object
+      required: [dataUrl]
+      properties:
+        dataUrl:
+          type: string
+          pattern: "^data:"
+    PresignResult:
+      type: object
+      properties:
+        strategy:
+          type: string
+          enum: [inline, direct]
+        url:
+          type: string
+        fields:
+          type: object
+    PhotoUploadResult:
+      type: object
+      properties:
+        url:
+          type: string
+
+    # ─── Notifications ─────────────────────────────────────────────────
+    SendNotificationInput:
+      type: object
+      required: [channel, to, template, body]
+      properties:
+        channel:
+          type: string
+          enum: [sms, whatsapp, email]
+        to:
+          type: string
+          minLength: 3
+        template:
+          type: string
+          minLength: 1
+        body:
+          type: string
+          minLength: 1
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        channel:
+          type: string
+        toAddress:
+          type: string
+        template:
+          type: string
+        body:
+          type: string
+        status:
+          type: string
+          enum: [queued, sent, failed]
+        createdAt:
+          type: string
+          format: date-time
+
+    # ─── Workflow ──────────────────────────────────────────────────────
+    DefineWorkflowInput:
+      type: object
+      required: [key, steps]
+      properties:
+        key:
+          type: string
+          minLength: 1
+        steps:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+                minLength: 1
+              approverRole:
+                type: string
+                minLength: 1
+    StartWorkflowInput:
+      type: object
+      required: [key, subjectRef]
+      properties:
+        key:
+          type: string
+          minLength: 1
+        subjectRef:
+          type: string
+          minLength: 1
+    DecideWorkflowInput:
+      type: object
+      required: [taskId, decision]
+      properties:
+        taskId:
+          type: string
+          format: uuid
+        decision:
+          type: string
+          enum: [approve, reject]
+        deciderId:
+          type: string
+          format: uuid
+    WorkflowDefinition:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        key:
+          type: string
+        steps:
+          type: array
+    WorkflowTask:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        instanceId:
+          type: string
+          format: uuid
+        stepIndex:
+          type: integer
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        approverRole:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    # ─── Portal ────────────────────────────────────────────────────────
+    StudentLoginInput:
+      type: object
+      required: [studentNumber, dob, schoolSlug]
+      properties:
+        studentNumber:
+          type: string
+          minLength: 1
+        dob:
+          type: string
+          minLength: 1
+        schoolSlug:
+          type: string
+          minLength: 1
+    PortalStudent:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        firstname:
+          type: string
+        lastname:
+          type: string
+        studentNumber:
+          type: string
+        classId:
+          type: string
+        className:
+          type: string
+        schoolId:
+          type: string
+    PortalStudentLoginResult:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        student:
+          $ref: "#/components/schemas/PortalStudent"
+
+    # ─── Admin ─────────────────────────────────────────────────────────
+    AdminLoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+    AdminLoginResult:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        email:
+          type: string
+    CreateInstitutionInput:
+      type: object
+      required: [schoolName, name, email, password]
+      properties:
+        schoolName:
+          type: string
+          minLength: 1
+        name:
+          type: string
+          minLength: 1
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+    CreateAdminInput:
+      type: object
+      required: [name, email, password]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+    UpdateAdminInput:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [active, disabled]
+    Institution:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        orgId:
+          type: string
+        orgName:
+          type: string
+        totalStudents:
+          type: integer
+        totalStaff:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+    AdminDashboard:
+      type: object
+      properties:
+        totalInstitutions:
+          type: integer
+        totalStudents:
+          type: integer
+        totalStaff:
+          type: integer
+        totalSuperAdmins:
+          type: integer
+        newThisMonth:
+          type: integer
+        activity:
+          type: array
+        topInstitutions:
+          type: array
+    SuperAdmin:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    # ─── Insights ──────────────────────────────────────────────────────
+    StatsResult:
+      type: object
+      properties:
+        totalStudents:
+          type: integer
+        totalStaff:
+          type: integer
+        totalClasses:
+          type: integer
+        presentToday:
+          type: integer
+    ActivityEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        eventType:
+          type: string
+        actorName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+paths:
+  # ═══════════════════════════════════════════════════════════════════════
+  # HEALTH
+  # ═══════════════════════════════════════════════════════════════════════
+  /health:
+    get:
+      summary: Liveness check
+      operationId: health
+      tags: [Health]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # AUTH (public)
+  # ═══════════════════════════════════════════════════════════════════════
+  /v1/auth/login:
+    post:
+      summary: Login with email + password
+      operationId: authLogin
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Tokens + memberships
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/LoginResult"
+        "422":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationError"
+
+  /v1/auth/signup:
+    post:
+      summary: Register a new school
+      operationId: authSignup
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignupInput"
+      responses:
+        "201":
+          description: School created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/SignupResult"
+        "409":
+          description: Email already registered
+        "422":
+          description: Validation failed
+
+  /v1/auth/refresh:
+    post:
+      summary: Exchange refresh token for new session
+      operationId: authRefresh
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshTokenInput"
+      responses:
+        "200":
+          description: New session
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/LoginResult"
+        "422":
+          description: Validation failed
+
+  /v1/auth/forgot-password:
+    post:
+      summary: Request password reset email
+      operationId: authForgotPassword
+      tags: [Auth]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForgotPasswordInput"
+      responses:
+        "200":
+          description: Always returns success (no account enumeration)
+
+  /v1/auth/reset-password/{token}:
+    post:
+      summary: Reset password using email-delivered token
+      operationId: authResetPassword
+      tags: [Auth]
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetPasswordInput"
+      responses:
+        "200":
+          description: Password updated
+
+  /v1/auth/verify-email:
+    post:
+      summary: Verify email with verification token
+      operationId: authVerifyEmail
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyEmailInput"
+      responses:
+        "200":
+          description: Email verified
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/SignupResult"
+        "422":
+          description: Validation failed
+
+  /v1/auth/change-password:
+    patch:
+      summary: Change own password (authenticated)
+      operationId: authChangePassword
+      tags: [Auth]
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordInput"
+      responses:
+        "200":
+          description: Password changed
+
+  /v1/auth/me:
+    get:
+      summary: Get current user profile + active membership
+      operationId: authMe
+      tags: [Auth]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Profile
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/MeResult"
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # PUBLIC ORG
+  # ═══════════════════════════════════════════════════════════════════════
+  /v1/public/schools/{slug}:
+    get:
+      summary: Look up a school by slug
+      operationId: publicSchoolBySlug
+      tags: [Org]
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: School info
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/SchoolPublic"
+        "404":
+          description: School not found
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # ORG (authenticated)
+  # ═══════════════════════════════════════════════════════════════════════
+  /v1/org/school:
+    get:
+      summary: Get current school profile
+      operationId: orgGetSchool
+      tags: [Org]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: School profile
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/SchoolPublic"
+        "404":
+          description: School not found
+    patch:
+      summary: Update school name, email, phone, address
+      operationId: orgUpdateSchool
+      tags: [Org]
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                phone:
+                  type: string
+                address:
+                  type: string
+      responses:
+        "200":
+          description: Updated school
+
+  /v1/org/school/settings:
+    get:
+      summary: Get school settings
+      operationId: orgGetSettings
+      tags: [Org]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Settings JSON
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/SchoolSettings"
+    patch:
+      summary: Partially update school settings
+      operationId: orgUpdateSettings
+      tags: [Org]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated settings
+        "422":
+          description: Must be a JSON object
+
+  /v1/org/billing/checkout:
+    post:
+      summary: Start a plan checkout
+      operationId: orgBillingCheckout
+      tags: [Org]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CheckoutPlanInput"
+      responses:
+        "201":
+          description: Checkout started
+        "422":
+          description: Validation failed or plan not purchasable
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # SUBJECTS
+  # ═══════════════════════════════════════════════════════════════════════
+  /v1/subjects:
+    get:
+      summary: List all subjects
+      operationId: subjectsList
+      tags: [Subjects]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Subject list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Subject"
+    post:
+      summary: Create a subject
+      operationId: subjectsCreate
+      tags: [Subjects]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSubjectInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Subject"
+        "422":
+          description: Validation failed
+
+  /v1/subjects/{id}:
+    patch:
+      summary: Rename a subject
+      operationId: subjectsUpdate
+      tags: [Subjects]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+      responses:
+        "200":
+          description: Updated
+    delete:
+      summary: Soft-delete a subject
+      operationId: subjectsDelete
+      tags: [Subjects]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Deleted
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # CLASSES
+  # ═══════════════════════════════════════════════════════════════════════
+  /v1/classes:
+    get:
+      summary: List all classes
+      operationId: classesList
+      tags: [Classes]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Class list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Class"
+    post:
+      summary: Create a class
+      operationId: classesCreate
+      tags: [Classes]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateClassInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Class"
+        "422":
+          description: Validation failed
+
+  /v1/classes/{id}:
+    patch:
+      summary: Update a class
+      operationId: classesUpdate
+      tags: [Classes]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                classTeacherId:
+                  type: string
+                  format: uuid
+      responses:
+        "200":
+          description: Updated
+    delete:
+      summary: Soft-delete a class
+      operationId: classesDelete
+      tags: [Classes]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Deleted
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # PEOPLE
+  # ═══════════════════════════════════════════════════════════════════════
+  /v1/people/students/import/template:
+    get:
+      summary: Download CSV import template
+      operationId: studentsImportTemplate
+      tags: [People]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: CSV file
+          content:
+            text/csv:
+              schema:
+                type: string
+
+  /v1/people/students/import:
+    post:
+      summary: Bulk import students from CSV
+      operationId: studentsImport
+      tags: [People]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CsvImportInput"
+      responses:
+        "200":
+          description: Import result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/CsvImportResult"
+        "422":
+          description: Validation failed
+
+  /v1/people/students/export:
+    get:
+      summary: Export all students as CSV
+      operationId: studentsExport
+      tags: [People]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: CSV file
+          content:
+            text/csv:
+              schema:
+                type: string
+
+  /v1/people/promote:
+    post:
+      summary: Promote students to next class
+      operationId: studentsPromote
+      tags: [People]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PromoteInput"
+      responses:
+        "200":
+          description: Promotion result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/PromoteResult"
+        "422":
+          description: Validation failed
+
+  /v1/people/students:
+    get:
+      summary: List all students
+      operationId: studentsList
+      tags: [People]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Student list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Student"
+    post:
+      summary: Create a student
+      operationId: studentsCreate
+      tags: [People]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateStudentInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Student"
+        "422":
+          description: Validation failed
+
+  /v1/people/students/{id}:
+    get:
+      summary: Get a student by ID
+      operationId: studentsGet
+      tags: [People]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Student
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Student"
+        "404":
+          description: Not found
+    patch:
+      summary: Update a student
+      operationId: studentsUpdate
+      tags: [People]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateStudentInput"
+      responses:
+        "200":
+          description: Updated
+    delete:
+      summary: Soft-delete a student
+      operationId: studentsDelete
+      tags: [People]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Deleted
+
+  /v1/people/staff:
+    get:
+      summary: List all staff
+      operationId: staffList
+      tags: [People]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Staff list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Staff"
+    post:
+      summary: Create a staff member
+      operationId: staffCreate
+      tags: [People]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateStaffInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Staff"
+        "422":
+          description: Validation failed
+
+  /v1/people/staff/{id}:
+    delete:
+      summary: Suspend a staff member
+      operationId: staffDelete
+      tags: [People]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Suspended
+
+  /v1/people/enrollments:
+    get:
+      summary: List all enrollments
+      operationId: enrollmentsList
+      tags: [People]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Enrollment list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Enrollment"
+    post:
+      summary: Enroll a student in a class
+      operationId: enrollmentsCreate
+      tags: [People]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EnrollInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Enrollment"
+        "422":
+          description: Validation failed
+
+  /v1/people/guardianships:
+    post:
+      summary: Link a guardian to a student
+      operationId: guardianshipsCreate
+      tags: [People]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LinkGuardianInput"
+      responses:
+        "201":
+          description: Created
+        "422":
+          description: Validation failed
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # ACADEMICS
+  # ═══════════════════════════════════════════════════════════════════════
+  /v1/academics/attendance:
+    get:
+      summary: Get attendance register for a class + date
+      operationId: attendanceGetRegister
+      tags: [Academics]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: classId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Register
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AttendanceRecord"
+        "422":
+          description: Validation failed
+
+  /v1/academics/attendance/bulk:
+    post:
+      summary: Bulk mark attendance for a class
+      operationId: attendanceBulkMark
+      tags: [Academics]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkMarkInput"
+      responses:
+        "200":
+          description: Count of records processed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      count:
+                        type: integer
+        "422":
+          description: Validation failed
+
+  /v1/academics/attendance/mark:
+    post:
+      summary: Mark attendance for one student
+      operationId: attendanceMark
+      tags: [Academics]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MarkInput"
+      responses:
+        "200":
+          description: Updated record
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/AttendanceRecord"
+        "422":
+          description: Validation failed
+
+  /v1/academics/grades/class:
+    get:
+      summary: Get grade sheet for a whole class + term
+      operationId: gradesClassSheet
+      tags: [Academics]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: classId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: termId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Grade sheet
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        studentId:
+                          type: string
+                        firstName:
+                          type: string
+                        lastName:
+                          type: string
+                        subjectId:
+                          type: string
+                          nullable: true
+                        subjectName:
+                          type: string
+                          nullable: true
+                        caScore:
+                          type: integer
+                          nullable: true
+                        examScore:
+                          type: integer
+                          nullable: true
+        "422":
+          description: Validation failed
+
+  /v1/academics/grades:
+    get:
+      summary: Get grades for a student in a term
+      operationId: gradesStudentTerm
+      tags: [Academics]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: studentId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: termId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Grade list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Grade"
+        "422":
+          description: Validation failed
+    post:
+      summary: Record a grade for a student
+      operationId: gradesRecord
+      tags: [Academics]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecordGradeInput"
+      responses:
+        "201":
+          description: Created / updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Grade"
+        "422":
+          description: Validation failed
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # ACADEMIC (TERMS)
+  # ═══════════════════════════════════════════════════════════════════════
+  /v1/academic/terms:
+    get:
+      summary: List all terms
+      operationId: termsList
+      tags: [Academic]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Term list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Term"
+    post:
+      summary: Create a term
+      operationId: termsCreate
+      tags: [Academic]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTermInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Term"
+        "422":
+          description: Validation failed
+
+  /v1/academic/terms/current:
+    get:
+      summary: Get the currently active term
+      operationId: termsCurrent
+      tags: [Academic]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current term (may be null)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Term"
+                    nullable: true
+
+  /v1/academic/terms/{id}:
+    patch:
+      summary: Update a term
+      operationId: termsUpdate
+      tags: [Academic]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                startDate:
+                  type: string
+                endDate:
+                  type: string
+      responses:
+        "200":
+          description: Updated
+
+  /v1/academic/terms/{id}/set-current:
+    post:
+      summary: Set a term as the current active term
+      operationId: termsSetCurrent
+      tags: [Academic]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Term set as current
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Term"
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # INSIGHTS / STATS
+  # ═══════════════════════════════════════════════════════════════════════
+  /v1/stats:
+    get:
+      summary: Dashboard summary counts
+      operationId: statsDashboard
+      tags: [Insights]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Stats
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/StatsResult"
+
+  /v1/stats/activity:
+    get:
+      summary: Recent activity feed
+      operationId: statsActivity
+      tags: [Insights]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Activity entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ActivityEntry"
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # FINANCE
+  # ═══════════════════════════════════════════════════════════════════════
+  /v1/finance/fee-structures:
+    get:
+      summary: List fee structures (optionally filtered by term)
+      operationId: financeListFeeStructures
+      tags: [Finance]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: termId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Fee structure list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/FeeStructure"
+    post:
+      summary: Create a fee structure
+      operationId: financeCreateFeeStructure
+      tags: [Finance]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFeeStructureInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/FeeStructure"
+        "422":
+          description: Validation failed
+
+  /v1/finance/fee-structures/{id}:
+    patch:
+      summary: Update a fee structure
+      operationId: financeUpdateFeeStructure
+      tags: [Finance]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                amountMinor:
+                  type: integer
+                isDefault:
+                  type: boolean
+      responses:
+        "200":
+          description: Updated
+
+  /v1/finance/assign:
+    post:
+      summary: Assign a fee structure to a student
+      operationId: financeAssignFee
+      tags: [Finance]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssignFeeInput"
+      responses:
+        "201":
+          description: Assigned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/LedgerEntry"
+        "422":
+          description: Validation failed
+
+  /v1/finance/assign-class:
+    post:
+      summary: Assign a fee structure to an entire class
+      operationId: financeAssignClass
+      tags: [Finance]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssignClassInput"
+      responses:
+        "200":
+          description: Result summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      assigned:
+                        type: integer
+                      skipped:
+                        type: integer
+                      total:
+                        type: integer
+        "422":
+          description: Validation failed
+
+  /v1/finance/payments:
+    post:
+      summary: Record an offline payment (idempotent)
+      operationId: financeRecordPayment
+      tags: [Finance]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecordPaymentInput"
+      responses:
+        "201":
+          description: Recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/LedgerEntry"
+        "422":
+          description: Validation failed
+
+  /v1/finance/payments/initiate:
+    post:
+      summary: Start an online payment (returns gateway redirect)
+      operationId: financeInitiatePayment
+      tags: [Finance]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InitiatePaymentInput"
+      responses:
+        "201":
+          description: Redirect info
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/InitiatePaymentResult"
+        "422":
+          description: Validation failed
+
+  /v1/finance/payments/webhook/{provider}:
+    post:
+      summary: Payment gateway webhook receiver
+      operationId: financeWebhook
+      tags: [Finance]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebhookTermId"
+      responses:
+        "200":
+          description: Processed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/LedgerEntry"
+                    nullable: true
+                  recorded:
+                    type: boolean
+        "422":
+          description: Validation failed
+
+  /v1/finance/student-term:
+    get:
+      summary: Get fee summary for a student in a term
+      operationId: financeStudentTerm
+      tags: [Finance]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: studentId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: termId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Fee summary
+        "422":
+          description: Validation failed
+
+  /v1/finance/outstanding:
+    get:
+      summary: List outstanding balances for a term
+      operationId: financeOutstanding
+      tags: [Finance]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: termId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Outstanding balances
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/OutstandingBalance"
+        "422":
+          description: Validation failed
+
+  /v1/finance/balance:
+    get:
+      summary: Get balance for a student in a term
+      operationId: financeBalance
+      tags: [Finance]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: studentId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: termId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Balances
+        "422":
+          description: Validation failed
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # PAYSTACK WEBHOOK (public)
+  # ═══════════════════════════════════════════════════════════════════════
+  /v1/public/payments/webhook/paystack:
+    post:
+      summary: Paystack charge success webhook (HMAC-verified)
+      operationId: paystackWebhook
+      tags: [Finance]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Acknowledged
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # CALENDAR
+  # ═══════════════════════════════════════════════════════════════════════
+  /v1/calendar:
+    get:
+      summary: List all calendar events
+      operationId: calendarList
+      tags: [Schedule]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Event list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CalendarEvent"
+    post:
+      summary: Create a calendar event
+      operationId: calendarCreate
+      tags: [Schedule]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEventInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/CalendarEvent"
+        "422":
+          description: Validation failed
+
+  /v1/calendar/{id}:
+    delete:
+      summary: Delete a calendar event
+      operationId: calendarDelete
+      tags: [Schedule]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Deleted
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # TIMETABLE
+  # ═══════════════════════════════════════════════════════════════════════
+  /v1/timetable:
+    get:
+      summary: Get timetable for a class + term
+      operationId: timetableGet
+      tags: [Schedule]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: classId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: termId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Timetable (may be null)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Timetable"
+                    nullable: true
+        "422":
+          description: Validation failed
+    post:
+      summary: Upsert a timetable for a class + term
+      operationId: timetableUpsert
+      tags: [Schedule]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertTimetableInput"
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Timetable"
+        "422":
+          description: Validation failed
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # UPLOADS
+  # ═══════════════════════════════════════════════════════════════════════
+  /v1/uploads/photo/presign:
+    post:
+      summary: Get a presigned upload URL or strategy hint
+      operationId: uploadsPresign
+      tags: [Uploads]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PresignInput"
+      responses:
+        "201":
+          description: Upload strategy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/PresignResult"
+        "422":
+          description: Validation failed or unsupported type
+
+  /v1/uploads/photo:
+    post:
+      summary: Upload a photo via data URL (fallback)
+      operationId: uploadsPhoto
+      tags: [Uploads]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PhotoUploadInput"
+      responses:
+        "201":
+          description: Uploaded URL
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/PhotoUploadResult"
+        "422":
+          description: Validation failed
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # NOTIFICATIONS
+  # ═══════════════════════════════════════════════════════════════════════
+  /v1/notifications:
+    get:
+      summary: List recent notifications
+      operationId: notificationsList
+      tags: [Notifications]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Notification list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Notification"
+
+  /v1/notifications/send:
+    post:
+      summary: Send a notification
+      operationId: notificationsSend
+      tags: [Notifications]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendNotificationInput"
+      responses:
+        "201":
+          description: Sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Notification"
+        "422":
+          description: Validation failed
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # WORKFLOWS
+  # ═══════════════════════════════════════════════════════════════════════
+  /v1/workflows/definitions:
+    get:
+      summary: List all workflow definitions
+      operationId: workflowsListDefinitions
+      tags: [Workflows]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Definitions list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/WorkflowDefinition"
+    post:
+      summary: Define a new workflow
+      operationId: workflowsDefine
+      tags: [Workflows]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DefineWorkflowInput"
+      responses:
+        "201":
+          description: Defined
+        "422":
+          description: Validation failed
+
+  /v1/workflows/tasks:
+    get:
+      summary: List approval tasks (optional status filter)
+      operationId: workflowsListTasks
+      tags: [Workflows]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, approved, rejected]
+      responses:
+        "200":
+          description: Task list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/WorkflowTask"
+        "422":
+          description: Invalid status
+
+  /v1/workflows/start:
+    post:
+      summary: Start a workflow instance
+      operationId: workflowsStart
+      tags: [Workflows]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartWorkflowInput"
+      responses:
+        "201":
+          description: Started
+        "422":
+          description: Validation failed
+
+  /v1/workflows/decide:
+    post:
+      summary: Approve or reject a workflow task
+      operationId: workflowsDecide
+      tags: [Workflows]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DecideWorkflowInput"
+      responses:
+        "200":
+          description: Decided
+        "422":
+          description: Validation failed
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # STUDENT PORTAL
+  # ═══════════════════════════════════════════════════════════════════════
+  /v1/portal/auth/student-login:
+    post:
+      summary: Student login via admission number + date of birth
+      operationId: portalStudentLogin
+      tags: [Portal]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StudentLoginInput"
+      responses:
+        "200":
+          description: Login result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/PortalStudentLoginResult"
+        "422":
+          description: Validation failed
+
+  /v1/portal/me:
+    get:
+      summary: Get student's own profile
+      operationId: portalMe
+      tags: [Portal]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Student profile
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/PortalStudent"
+
+  /v1/portal/grades:
+    get:
+      summary: Get student's own grades
+      operationId: portalGrades
+      tags: [Portal]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Grade list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+
+  /v1/portal/attendance:
+    get:
+      summary: Get student's own attendance records
+      operationId: portalAttendance
+      tags: [Portal]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Attendance records
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+
+  /v1/portal/fees:
+    get:
+      summary: Get student's own fee details
+      operationId: portalFees
+      tags: [Portal]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Fee details
+
+  /v1/portal/fees/pay:
+    post:
+      summary: Start an online fee payment for the student
+      operationId: portalFeesPay
+      tags: [Portal]
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: Redirect URL
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      redirectUrl:
+                        type: string
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # ADMIN (Super-admin)
+  # ═══════════════════════════════════════════════════════════════════════
+  /v1/admin/auth/login:
+    post:
+      summary: Super-admin login
+      operationId: adminLogin
+      tags: [Admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminLoginInput"
+      responses:
+        "200":
+          description: Access token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/AdminLoginResult"
+        "422":
+          description: Validation failed
+
+  /v1/admin/dashboard:
+    get:
+      summary: Super-admin dashboard
+      operationId: adminDashboard
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Dashboard data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/AdminDashboard"
+
+  /v1/admin/health:
+    get:
+      summary: System health check (super-admin)
+      operationId: adminHealth
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Health status
+
+  /v1/admin/institutions:
+    get:
+      summary: List all institutions
+      operationId: adminListInstitutions
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Institution list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Institution"
+    post:
+      summary: Create an institution
+      operationId: adminCreateInstitution
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInstitutionInput"
+      responses:
+        "201":
+          description: Created
+        "422":
+          description: Validation failed
+
+  /v1/admin/institutions/{id}:
+    get:
+      summary: Get institution detail
+      operationId: adminGetInstitution
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Institution detail
+        "404":
+          description: Not found
+
+  /v1/admin/admins:
+    get:
+      summary: List all super-admins
+      operationId: adminListAdmins
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Admin list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SuperAdmin"
+    post:
+      summary: Create a super-admin
+      operationId: adminCreateAdmin
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAdminInput"
+      responses:
+        "201":
+          description: Created
+        "409":
+          description: Email already exists
+        "422":
+          description: Validation failed
+
+  /v1/admin/admins/{id}:
+    patch:
+      summary: Update a super-admin
+      operationId: adminUpdateAdmin
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAdminInput"
+      responses:
+        "200":
+          description: Updated
+        "422":
+          description: Validation failed
