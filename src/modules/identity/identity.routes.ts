@@ -1,8 +1,9 @@
 import { Router } from "express";
 import { authenticate } from "../../auth/middleware.js";
 import { HttpError } from "../../lib/http-error.js";
-import { authService, loginInput } from "./auth.service.js";
-import { signupService, signupInput } from "./signup.service.js";
+import { authService } from "./auth.service.js";
+import { signupService } from "./signup.service.js";
+import { loginInput, signupInput, refreshTokenInput, verifyEmailInput } from "./identity.schema.js";
 
 /**
  * Auth surface. `/login` is public; `/me` requires a valid token. Neither
@@ -38,10 +39,12 @@ authRouter.post("/signup", async (req, res, next) => {
 
 authRouter.post("/refresh", async (req, res, next) => {
   try {
-    const refreshToken = String(req.body?.refreshToken ?? "");
-    if (!refreshToken) throw new HttpError(400, "refreshToken is required");
-    const schoolSlug = req.body?.schoolSlug ? String(req.body.schoolSlug) : undefined;
-    res.json({ data: await authService.refresh(refreshToken, schoolSlug) });
+    const parsed = refreshTokenInput.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(422).json({ error: "Validation failed", details: parsed.error.flatten() });
+      return;
+    }
+    res.json({ data: await authService.refresh(parsed.data.refreshToken, parsed.data.schoolSlug) });
   } catch (err) {
     next(err);
   }
@@ -67,9 +70,12 @@ authRouter.post("/reset-password/:token", async (req, res, next) => {
 
 authRouter.post("/verify-email", async (req, res, next) => {
   try {
-    const token = String(req.body?.token ?? "");
-    if (!token) throw new HttpError(400, "token is required");
-    res.json({ data: await signupService.verifyEmail(token) });
+    const parsed = verifyEmailInput.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(422).json({ error: "Validation failed", details: parsed.error.flatten() });
+      return;
+    }
+    res.json({ data: await signupService.verifyEmail(parsed.data.token) });
   } catch (err) {
     next(err);
   }

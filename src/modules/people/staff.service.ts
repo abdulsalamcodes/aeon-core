@@ -1,8 +1,8 @@
-import { z } from "zod";
 import { eq, ne, and } from "drizzle-orm";
 import { persons, memberships, accounts } from "../../db/schema/index.js";
 import { withTenant } from "../../tenant/context.js";
 import { provisionService, type SystemRole } from "../identity/index.js";
+import type { CreateStaffInput } from "./people.schema.js";
 
 export interface StaffRow {
   id: string;
@@ -10,13 +10,6 @@ export interface StaffRow {
   email: string;
   role: string;
 }
-
-export const createStaffInput = z.object({
-  name: z.string().trim().min(1),
-  email: z.string().email(),
-  password: z.string().min(8),
-  role: z.string().default("teacher"),
-});
 
 export const staffService = {
   /** Staff = persons with a non-student membership in this school. */
@@ -38,7 +31,7 @@ export const staffService = {
     return rows.map((r) => ({ id: r.id, name: `${r.firstName} ${r.lastName}`, email: r.email, role: r.role }));
   },
 
-  async create(input: z.infer<typeof createStaffInput>): Promise<StaffRow> {
+  async create(input: CreateStaffInput): Promise<StaffRow> {
     const [firstName, ...rest] = input.name.trim().split(" ");
     const role = (["school-admin", "teacher"].includes(input.role) ? input.role : "teacher") as SystemRole;
     const { personId } = await provisionService.addPrincipal({

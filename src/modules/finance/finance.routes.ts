@@ -5,6 +5,10 @@ import {
   assignFeeInput,
   recordPaymentInput,
   initiatePaymentInput,
+  assignClassInput,
+  studentTermQuery,
+  termIdQuery,
+  webhookTermId,
 } from "./finance.schema.js";
 
 export const financeRouter: Router = Router();
@@ -88,15 +92,15 @@ financeRouter.post("/payments/initiate", async (req, res, next) => {
 // Payment gateway webhook → normalized event → idempotent ledger credit.
 financeRouter.post("/payments/webhook/:provider", async (req, res, next) => {
   try {
-    const termId = String(req.body?.termId ?? "");
-    if (!termId) {
-      res.status(400).json({ error: "termId is required" });
+    const parsed = webhookTermId.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(422).json({ error: "Validation failed", details: parsed.error.flatten() });
       return;
     }
     const entry = await financeService.recordFromWebhook(
       req.params.provider,
       req.body,
-      termId,
+      parsed.data.termId,
     );
     res.json({ data: entry, recorded: Boolean(entry) });
   } catch (err) {
@@ -115,19 +119,13 @@ financeRouter.patch("/fee-structures/:id", async (req, res, next) => {
 
 financeRouter.post("/assign-class", async (req, res, next) => {
   try {
-    const { classId, feeStructureId, termId } = req.body ?? {};
-    if (!classId || !feeStructureId || !termId) {
-      res
-        .status(400)
-        .json({ error: "classId, feeStructureId, termId required" });
+    const parsed = assignClassInput.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(422).json({ error: "Validation failed", details: parsed.error.flatten() });
       return;
     }
     res.json({
-      data: await financeService.assignToClass({
-        classId,
-        feeStructureId,
-        termId,
-      }),
+      data: await financeService.assignToClass(parsed.data),
     });
   } catch (err) {
     next(err);
@@ -136,13 +134,12 @@ financeRouter.post("/assign-class", async (req, res, next) => {
 
 financeRouter.get("/student-term", async (req, res, next) => {
   try {
-    const studentId = String(req.query.studentId ?? "");
-    const termId = String(req.query.termId ?? "");
-    if (!studentId || !termId) {
-      res.status(400).json({ error: "studentId and termId required" });
+    const parsed = studentTermQuery.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(422).json({ error: "Validation failed", details: parsed.error.flatten() });
       return;
     }
-    res.json({ data: await financeService.studentTerm(studentId, termId) });
+    res.json({ data: await financeService.studentTerm(parsed.data.studentId, parsed.data.termId) });
   } catch (err) {
     next(err);
   }
@@ -150,12 +147,12 @@ financeRouter.get("/student-term", async (req, res, next) => {
 
 financeRouter.get("/outstanding", async (req, res, next) => {
   try {
-    const termId = String(req.query.termId ?? "");
-    if (!termId) {
-      res.status(400).json({ error: "termId required" });
+    const parsed = termIdQuery.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(422).json({ error: "Validation failed", details: parsed.error.flatten() });
       return;
     }
-    res.json({ data: await financeService.outstanding(termId) });
+    res.json({ data: await financeService.outstanding(parsed.data.termId) });
   } catch (err) {
     next(err);
   }
@@ -163,13 +160,12 @@ financeRouter.get("/outstanding", async (req, res, next) => {
 
 financeRouter.get("/balance", async (req, res, next) => {
   try {
-    const studentId = String(req.query.studentId ?? "");
-    const termId = String(req.query.termId ?? "");
-    if (!studentId || !termId) {
-      res.status(400).json({ error: "studentId and termId are required" });
+    const parsed = studentTermQuery.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(422).json({ error: "Validation failed", details: parsed.error.flatten() });
       return;
     }
-    res.json({ data: await financeService.balanceFor(studentId, termId) });
+    res.json({ data: await financeService.balanceFor(parsed.data.studentId, parsed.data.termId) });
   } catch (err) {
     next(err);
   }

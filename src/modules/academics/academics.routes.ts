@@ -1,18 +1,18 @@
 import { Router } from "express";
-import { attendanceService, markInput } from "./attendance.service.js";
-import { gradeService, recordGradeInput } from "./grade.service.js";
+import { attendanceService } from "./attendance.service.js";
+import { gradeService } from "./grade.service.js";
+import { markInput, recordGradeInput, registerQuery, gradeClassQuery, gradeStudentQuery, bulkMarkInput } from "./academics.schema.js";
 
 export const academicsRouter: Router = Router();
 
 academicsRouter.get("/attendance", async (req, res, next) => {
   try {
-    const classId = String(req.query.classId ?? "");
-    const date = String(req.query.date ?? "");
-    if (!classId || !date) {
-      res.status(400).json({ error: "classId and date are required" });
+    const parsed = registerQuery.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(422).json({ error: "Validation failed", details: parsed.error.flatten() });
       return;
     }
-    res.json({ data: await attendanceService.listForClassDate(classId, date) });
+    res.json({ data: await attendanceService.listForClassDate(parsed.data.classId, parsed.data.date) });
   } catch (err) {
     next(err);
   }
@@ -20,12 +20,12 @@ academicsRouter.get("/attendance", async (req, res, next) => {
 
 academicsRouter.post("/attendance/bulk", async (req, res, next) => {
   try {
-    const { classId, termId, date, records } = req.body ?? {};
-    if (!classId || !termId || !date || !Array.isArray(records)) {
-      res.status(400).json({ error: "classId, termId, date, records required" });
+    const parsed = bulkMarkInput.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(422).json({ error: "Validation failed", details: parsed.error.flatten() });
       return;
     }
-    res.json({ data: { count: await attendanceService.bulkMark({ classId, termId, date, records }) } });
+    res.json({ data: { count: await attendanceService.bulkMark(parsed.data) } });
   } catch (err) {
     next(err);
   }
@@ -46,13 +46,12 @@ academicsRouter.post("/attendance/mark", async (req, res, next) => {
 
 academicsRouter.get("/grades/class", async (req, res, next) => {
   try {
-    const classId = String(req.query.classId ?? "");
-    const termId = String(req.query.termId ?? "");
-    if (!classId || !termId) {
-      res.status(400).json({ error: "classId and termId required" });
+    const parsed = gradeClassQuery.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(422).json({ error: "Validation failed", details: parsed.error.flatten() });
       return;
     }
-    res.json({ data: await gradeService.classSheet(classId, termId) });
+    res.json({ data: await gradeService.classSheet(parsed.data.classId, parsed.data.termId) });
   } catch (err) {
     next(err);
   }
@@ -60,13 +59,12 @@ academicsRouter.get("/grades/class", async (req, res, next) => {
 
 academicsRouter.get("/grades", async (req, res, next) => {
   try {
-    const studentId = String(req.query.studentId ?? "");
-    const termId = String(req.query.termId ?? "");
-    if (!studentId || !termId) {
-      res.status(400).json({ error: "studentId and termId are required" });
+    const parsed = gradeStudentQuery.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(422).json({ error: "Validation failed", details: parsed.error.flatten() });
       return;
     }
-    res.json({ data: await gradeService.listForStudentTerm(studentId, termId) });
+    res.json({ data: await gradeService.listForStudentTerm(parsed.data.studentId, parsed.data.termId) });
   } catch (err) {
     next(err);
   }

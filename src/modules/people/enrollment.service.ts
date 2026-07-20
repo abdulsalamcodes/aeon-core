@@ -1,15 +1,8 @@
-import { z } from "zod";
 import { isNull } from "drizzle-orm";
 import { enrollments, type Enrollment } from "../../db/schema/enrollments.js";
 import { currentTenant, withTenant } from "../../tenant/context.js";
 import { emit } from "../../events/outbox.js";
-
-export const enrollInput = z.object({
-  studentId: z.string().uuid(),
-  classId: z.string().uuid(),
-  termId: z.string().uuid(),
-});
-export type EnrollInput = z.infer<typeof enrollInput>;
+import type { EnrollInput } from "./people.schema.js";
 
 export const STUDENT_ENROLLED = "StudentEnrolled";
 

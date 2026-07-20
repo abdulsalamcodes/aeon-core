@@ -1,13 +1,7 @@
-import { z } from "zod";
 import { eq, isNull } from "drizzle-orm";
 import { classes, persons } from "../../db/schema/index.js";
 import { currentTenant, withTenant } from "../../tenant/context.js";
-
-export const createClassInput = z.object({
-  name: z.string().trim().min(1),
-  classTeacherId: z.string().uuid().optional(),
-});
-export type CreateClassInput = z.infer<typeof createClassInput>;
+import type { CreateClassInput } from "./classes.schema.js";
 
 export interface ClassRow {
   id: string;

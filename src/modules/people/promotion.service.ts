@@ -1,19 +1,11 @@
-import { z } from "zod";
 import { and, eq, inArray } from "drizzle-orm";
 import { enrollments, studentProfiles, persons } from "../../db/schema/index.js";
 import { currentTenant, withTenant } from "../../tenant/context.js";
-
-export const promoteInput = z.object({
-  fromClassId: z.string().uuid(),
-  toClassId: z.string().uuid(),
-  termId: z.string().uuid().optional(),
-  studentIds: z.array(z.string().uuid()).optional(),
-  promoteAll: z.boolean().optional(),
-});
+import type { PromoteInput } from "./people.schema.js";
 
 export const promotionService = {
   /** Moves students from one class to another for the term (updates enrolments). */
-  async promote(input: z.infer<typeof promoteInput>): Promise<{ promoted: number }> {
+  async promote(input: PromoteInput): Promise<{ promoted: number }> {
     const { schoolId, orgId } = currentTenant();
     return withTenant(async (tx) => {
       // Resolve the active term to operate on (caller may pass one).

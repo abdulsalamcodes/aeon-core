@@ -1,4 +1,3 @@
-import { z } from "zod";
 import { eq, count, and, desc, sql, isNull } from "drizzle-orm";
 import { db } from "../../db/client.js";
 import {
@@ -14,29 +13,11 @@ import { verifyPassword } from "../../auth/password.js";
 import { signAccessToken } from "../../auth/jwt.js";
 import { HttpError } from "../../lib/http-error.js";
 import { provisionService } from "../identity/index.js";
-
-export const adminLoginInput = z.object({
-  email: z.string().email(),
-  password: z.string().min(1),
-});
-export const createInstitutionInput = z.object({
-  schoolName: z.string().trim().min(1),
-  name: z.string().trim().min(1),
-  email: z.string().email(),
-  password: z.string().min(8),
-});
-export const createAdminInput = z.object({
-  name: z.string().trim().min(1),
-  email: z.string().email(),
-  password: z.string().min(8),
-});
-export const updateAdminInput = z.object({
-  status: z.enum(["active", "disabled"]).optional(),
-});
+import type { AdminLoginInput, CreateInstitutionInput, CreateAdminInput, UpdateAdminInput } from "./admin.schema.js";
 
 export const adminService = {
   async login(
-    input: z.infer<typeof adminLoginInput>,
+    input: AdminLoginInput,
   ): Promise<{ accessToken: string; email: string }> {
     const [account] = await db
       .select()
@@ -91,7 +72,7 @@ export const adminService = {
     return result;
   },
 
-  async createInstitution(input: z.infer<typeof createInstitutionInput>) {
+  async createInstitution(input: CreateInstitutionInput) {
     const school = await provisionService.provisionSchool({
       schoolName: input.schoolName,
       adminName: input.name,
@@ -190,7 +171,7 @@ export const adminService = {
     return rows.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() }));
   },
 
-  async createAdmin(input: z.infer<typeof createAdminInput>) {
+  async createAdmin(input: CreateAdminInput) {
     const existing = await db
       .select({ id: accounts.id })
       .from(accounts)
@@ -221,7 +202,7 @@ export const adminService = {
     return { ...account!, createdAt: account!.createdAt.toISOString() };
   },
 
-  async updateAdmin(id: string, input: z.infer<typeof updateAdminInput>) {
+  async updateAdmin(id: string, input: UpdateAdminInput) {
     const [account] = await db
       .select()
       .from(accounts)

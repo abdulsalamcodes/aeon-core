@@ -1,4 +1,3 @@
-import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { db } from "../../db/client.js";
 import { schools, persons, studentProfiles, grades, attendance, ledgerEntries, enrollments, classes, subjects } from "../../db/schema/index.js";
@@ -8,15 +7,10 @@ import { HttpError } from "../../lib/http-error.js";
 import { computeBalances } from "../finance/balance.js";
 import { financeService } from "../finance/index.js";
 import { termService } from "../academic/index.js";
+import type { StudentLoginInput } from "./portal.schema.js";
 
 // Paystack currently settles NGN only; other currencies stay on offline payment.
 const PAYABLE_CURRENCY = "NGN";
-
-export const studentLoginInput = z.object({
-  studentNumber: z.string().trim().min(1),
-  dob: z.string().min(1),
-  schoolSlug: z.string().min(1),
-});
 
 export interface PortalStudent {
   id: string;
@@ -67,7 +61,7 @@ async function loadStudent(schoolId: string, orgId: string, studentId: string): 
 }
 
 export const portalService = {
-  async login(input: z.infer<typeof studentLoginInput>): Promise<{ accessToken: string; student: PortalStudent }> {
+  async login(input: StudentLoginInput): Promise<{ accessToken: string; student: PortalStudent }> {
     const [school] = await db
       .select({ id: schools.id, orgId: schools.orgId })
       .from(schools)

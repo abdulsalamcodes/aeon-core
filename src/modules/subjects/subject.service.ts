@@ -1,13 +1,8 @@
-import { z } from "zod";
 import { isNull, eq } from "drizzle-orm";
 import { subjects, type Subject } from "../../db/schema/subjects.js";
 import { currentTenant, withTenant } from "../../tenant/context.js";
 import { emit } from "../../events/outbox.js";
-
-export const createSubjectInput = z.object({
-  name: z.string().trim().min(1).max(120),
-});
-export type CreateSubjectInput = z.infer<typeof createSubjectInput>;
+import type { CreateSubjectInput } from "./subjects.schema.js";
 
 /**
  * Public service interface for the Subjects module. Other modules call THESE

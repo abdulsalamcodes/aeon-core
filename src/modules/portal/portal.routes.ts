@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { HttpError } from "../../lib/http-error.js";
-import { portalService, studentLoginInput } from "./portal.service.js";
+import { portalService } from "./portal.service.js";
+import { studentLoginInput } from "./portal.schema.js";
 
 /** Public student login (admission number + DOB). */
 export const portalAuthRouter: Router = Router();

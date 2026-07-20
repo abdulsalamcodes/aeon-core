@@ -1,9 +1,10 @@
 import { Router } from "express";
-import { enrollmentService, enrollInput } from "./enrollment.service.js";
-import { guardianshipService, linkGuardianInput } from "./guardianship.service.js";
-import { studentService, createStudentInput } from "./student.service.js";
-import { staffService, createStaffInput } from "./staff.service.js";
-import { promotionService, promoteInput } from "./promotion.service.js";
+import { enrollmentService } from "./enrollment.service.js";
+import { guardianshipService } from "./guardianship.service.js";
+import { studentService } from "./student.service.js";
+import { staffService } from "./staff.service.js";
+import { promotionService } from "./promotion.service.js";
+import { enrollInput, linkGuardianInput, createStudentInput, createStaffInput, promoteInput, csvImportInput } from "./people.schema.js";
 
 export const peopleRouter: Router = Router();
 
@@ -18,12 +19,12 @@ peopleRouter.get("/students/import/template", (_req, res) => {
 
 peopleRouter.post("/students/import", async (req, res, next) => {
   try {
-    const csv = String(req.body?.csv ?? "");
-    if (!csv.trim()) {
-      res.status(400).json({ error: "csv is required" });
+    const parsed = csvImportInput.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(422).json({ error: "Validation failed", details: parsed.error.flatten() });
       return;
     }
-    res.json({ data: await studentService.bulkImport(csv) });
+    res.json({ data: await studentService.bulkImport(parsed.data.csv) });
   } catch (err) {
     next(err);
   }

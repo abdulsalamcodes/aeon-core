@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { defineInput, decideInput } from "./workflow.service.js";
-import { sendInput } from "../notifications/notification.service.js";
+import { defineInput, decideInput } from "./workflow.schema.js";
+import { sendInput } from "../notifications/notifications.schema.js";
 
 const uuid = "11111111-1111-1111-1111-111111111111";
 

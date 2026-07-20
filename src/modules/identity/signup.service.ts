@@ -1,4 +1,3 @@
-import { z } from "zod";
 import { eq, and, gt } from "drizzle-orm";
 import { db } from "../../db/client.js";
 import { accounts, memberships, schools } from "../../db/schema/index.js";
@@ -9,21 +8,10 @@ import { generateToken, hashToken } from "../../auth/token.js";
 import { provisionService } from "./provision.service.js";
 import { schoolService } from "../org/school.service.js";
 import { isPaidPlan } from "../org/billing.service.js";
+import type { SignupInput } from "./identity.schema.js";
 
 const VERIFY_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
 const FREE_PLAN = "starter";
-
-// Self-service tiers only. Enterprise is assisted (demo → super-admin onboarding).
-const SIGNUP_PLANS = [FREE_PLAN, "growth"] as const;
-
-export const signupInput = z.object({
-  schoolName: z.string().trim().min(2),
-  adminName: z.string().trim().min(2),
-  email: z.string().email(),
-  password: z.string().min(8),
-  plan: z.enum(SIGNUP_PLANS),
-});
-export type SignupInput = z.infer<typeof signupInput>;
 
 export interface SignupResult {
   schoolSlug: string;

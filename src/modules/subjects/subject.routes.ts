@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { createSubjectInput, subjectService } from "./subject.service.js";
+import { subjectService } from "./subject.service.js";
+import { createSubjectInput } from "./subjects.schema.js";
 
 /**
  * HTTP surface for Subjects. Thin — validates input, delegates to the service.

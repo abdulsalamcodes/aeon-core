@@ -1,4 +1,3 @@
-import { z } from "zod";
 import { eq, and, gt } from "drizzle-orm";
 import { createHash, randomBytes } from "node:crypto";
 import { db } from "../../db/client.js";
@@ -8,19 +7,9 @@ import { hashPassword, verifyPassword } from "../../auth/password.js";
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from "../../auth/jwt.js";
 import { HttpError } from "../../lib/http-error.js";
 import { sendEmail } from "../../email/email.js";
+import type { LoginInput } from "./identity.schema.js";
 
 const sha = (s: string) => createHash("sha256").update(s).digest("hex");
-
-export const loginInput = z
-  .object({
-    email: z.string().email(),
-    password: z.string().min(1),
-    /** Pick which school to enter when the account has several. */
-    schoolId: z.string().uuid().optional(),
-    schoolSlug: z.string().optional(),
-  })
-  .strip();
-export type LoginInput = z.infer<typeof loginInput>;
 
 export interface MembershipSummary {
   schoolId: string;

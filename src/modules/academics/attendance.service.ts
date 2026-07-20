@@ -1,13 +1,7 @@
-import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { attendance, type Attendance } from "../../db/schema/attendance.js";
 import { currentTenant, withTenant } from "../../tenant/context.js";
-
-export const markInput = z.object({
-  attendanceId: z.string().uuid(),
-  status: z.enum(["present", "absent", "late", "excused", "unmarked"]),
-});
-export type MarkInput = z.infer<typeof markInput>;
+import type { MarkInput } from "./academics.schema.js";
 
 export const attendanceService = {
   /**

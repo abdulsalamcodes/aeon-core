@@ -1,14 +1,7 @@
-import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { guardianships, type Guardianship } from "../../db/schema/guardianships.js";
 import { currentTenant, withTenant } from "../../tenant/context.js";
-
-export const linkGuardianInput = z.object({
-  guardianId: z.string().uuid(),
-  studentId: z.string().uuid(),
-  relationship: z.string().trim().max(60).optional(),
-});
-export type LinkGuardianInput = z.infer<typeof linkGuardianInput>;
+import type { LinkGuardianInput } from "./people.schema.js";
 
 export const guardianshipService = {
   async link(input: LinkGuardianInput): Promise<Guardianship> {

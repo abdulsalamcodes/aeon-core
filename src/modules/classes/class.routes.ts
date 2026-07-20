@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { classService, createClassInput } from "./class.service.js";
+import { classService } from "./class.service.js";
+import { createClassInput } from "./classes.schema.js";
 
 export const classRouter: Router = Router();
 

@@ -1,16 +1,8 @@
-import { z } from "zod";
 import { desc, eq } from "drizzle-orm";
 import { notifications, type Notification } from "../../db/schema/notifications.js";
 import { currentTenant, withTenant } from "../../tenant/context.js";
 import { channelFor, type ChannelKind } from "../../notifications/index.js";
-
-export const sendInput = z.object({
-  channel: z.enum(["sms", "whatsapp", "email"]),
-  to: z.string().min(3),
-  template: z.string().min(1),
-  body: z.string().min(1),
-});
-export type SendInput = z.infer<typeof sendInput>;
+import type { SendInput } from "./notifications.schema.js";
 
 export const notificationService = {
   /**

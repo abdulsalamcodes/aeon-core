@@ -1,23 +1,8 @@
-import { z } from "zod";
 import { eq, desc } from "drizzle-orm";
 import { persons, studentProfiles, classes, enrollments } from "../../db/schema/index.js";
 import { currentTenant, withTenant } from "../../tenant/context.js";
 import { enrollmentService } from "./enrollment.service.js";
-
-export const createStudentInput = z.object({
-  firstName: z.string().trim().min(1),
-  lastName: z.string().trim().min(1),
-  studentNumber: z.string().trim().optional(),
-  gender: z.enum(["male", "female"]).optional(),
-  dob: z.string().optional(),
-  guardianName: z.string().trim().optional(),
-  guardianPhone: z.string().trim().optional(),
-  guardianEmail: z.string().trim().optional(),
-  // Optional immediate enrolment → fires the StudentEnrolled ripple.
-  classId: z.string().uuid().optional(),
-  termId: z.string().uuid().optional(),
-});
-export type CreateStudentInput = z.infer<typeof createStudentInput>;
+import type { CreateStudentInput } from "./people.schema.js";
 
 export interface StudentRow {
   id: string;

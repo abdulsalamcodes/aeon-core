@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { calendarService, timetableService, createEventInput, upsertTimetableInput } from "./schedule.service.js";
+import { calendarService, timetableService } from "./schedule.service.js";
+import { createEventInput, upsertTimetableInput, timetableQuery } from "./schedule.schema.js";
 
 export const calendarRouter: Router = Router();
 calendarRouter.get("/", async (_req, res, next) => {
@@ -33,13 +34,12 @@ calendarRouter.delete("/:id", async (req, res, next) => {
 export const timetableRouter: Router = Router();
 timetableRouter.get("/", async (req, res, next) => {
   try {
-    const classId = String(req.query.classId ?? "");
-    const termId = String(req.query.termId ?? "");
-    if (!classId || !termId) {
-      res.status(400).json({ error: "classId and termId required" });
+    const parsed = timetableQuery.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(422).json({ error: "Validation failed", details: parsed.error.flatten() });
       return;
     }
-    res.json({ data: await timetableService.getByClassTerm(classId, termId) });
+    res.json({ data: await timetableService.getByClassTerm(parsed.data.classId, parsed.data.termId) });
   } catch (err) {
     next(err);
   }

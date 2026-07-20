@@ -1,28 +1,14 @@
-import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { calendarEvents, type CalendarEvent } from "../../db/schema/calendarEvents.js";
 import { timetables, type Timetable, type TimetableDay } from "../../db/schema/timetables.js";
 import { currentTenant, withTenant } from "../../tenant/context.js";
-
-export const createEventInput = z.object({
-  title: z.string().trim().min(1),
-  description: z.string().optional(),
-  startDate: z.string().min(1),
-  endDate: z.string().min(1),
-  type: z.enum(["holiday", "exam", "event", "term-start", "term-end"]),
-});
-
-export const upsertTimetableInput = z.object({
-  classId: z.string().uuid(),
-  termId: z.string().uuid(),
-  schedule: z.array(z.object({ day: z.string(), periods: z.array(z.any()) })),
-});
+import type { CreateEventInput, UpsertTimetableInput } from "./schedule.schema.js";
 
 export const calendarService = {
   async list(): Promise<CalendarEvent[]> {
     return withTenant((tx) => tx.select().from(calendarEvents));
   },
-  async create(input: z.infer<typeof createEventInput>): Promise<CalendarEvent> {
+  async create(input: CreateEventInput): Promise<CalendarEvent> {
     const { schoolId } = currentTenant();
     return withTenant(async (tx) => {
       const [row] = await tx.insert(calendarEvents).values({ schoolId, ...input }).returning();
@@ -42,7 +28,7 @@ export const timetableService = {
     );
     return rows[0] ?? null;
   },
-  async upsert(input: z.infer<typeof upsertTimetableInput>): Promise<Timetable> {
+  async upsert(input: UpsertTimetableInput): Promise<Timetable> {
     const { schoolId } = currentTenant();
     return withTenant(async (tx) => {
       const [row] = await tx

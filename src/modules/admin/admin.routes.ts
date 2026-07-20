@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { authenticate } from "../../auth/middleware.js";
 import { HttpError } from "../../lib/http-error.js";
-import { adminService, adminLoginInput, createInstitutionInput, createAdminInput, updateAdminInput } from "./admin.service.js";
+import { adminService } from "./admin.service.js";
+import { adminLoginInput, createInstitutionInput, createAdminInput, updateAdminInput } from "./admin.schema.js";
 
 /** Public super-admin login. */
 export const adminAuthRouter: Router = Router();

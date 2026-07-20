@@ -1,15 +1,7 @@
-import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { terms, type Term } from "../../db/schema/terms.js";
 import { currentTenant, withTenant } from "../../tenant/context.js";
-
-export const createTermInput = z.object({
-  name: z.string().trim().min(1),
-  startDate: z.string().optional(),
-  endDate: z.string().optional(),
-  isCurrent: z.boolean().optional(),
-});
-export type CreateTermInput = z.infer<typeof createTermInput>;
+import type { CreateTermInput } from "./academic.schema.js";
 
 export const termService = {
   async list(): Promise<Term[]> {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createSubjectInput } from "./subject.service.js";
+import { createSubjectInput } from "./subjects.schema.js";
 
 /**
  * Pure unit tests (no DB). The end-to-end RLS + outbox behaviour is exercised

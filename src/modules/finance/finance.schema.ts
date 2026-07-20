@@ -46,3 +46,5 @@ export type AssignClassInput = z.infer<typeof assignClassInput>;
 
 export const termIdQuery = z.object({ termId: z.string().uuid() });
 export const studentTermQuery = z.object({ studentId: z.string().uuid(), termId: z.string().uuid() });
+
+export const webhookTermId = z.object({ termId: z.string().uuid() });

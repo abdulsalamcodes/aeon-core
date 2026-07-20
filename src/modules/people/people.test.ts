@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { enrollInput } from "./enrollment.service.js";
-import { recordGradeInput } from "../academics/grade.service.js";
-import { markInput } from "../academics/attendance.service.js";
+import { enrollInput } from "./people.schema.js";
+import { recordGradeInput, markInput } from "../academics/academics.schema.js";
 
 const uuid = "11111111-1111-1111-1111-111111111111";
 

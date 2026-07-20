@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { termService, createTermInput } from "./term.service.js";
+import { termService } from "./term.service.js";
+import { createTermInput } from "./academic.schema.js";
 
 /** Academic structure: terms (and sessions, mapped to terms in Phase 2). */
 export const academicRouter: Router = Router();

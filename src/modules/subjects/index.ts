@@ -5,4 +5,4 @@
  */
 export { subjectRouter } from "./subject.routes.js";
 export { subjectService } from "./subject.service.js";
-export type { CreateSubjectInput } from "./subject.service.js";
+export type { CreateSubjectInput } from "./subjects.schema.js";

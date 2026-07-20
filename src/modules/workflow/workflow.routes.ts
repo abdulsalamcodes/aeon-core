@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
-import { workflowService, defineInput, startInput, decideInput } from "./workflow.service.js";
+import { workflowService } from "./workflow.service.js";
+import { defineInput, startInput, decideInput } from "./workflow.schema.js";
 
 const taskStatusQuery = z.enum(["pending", "approved", "rejected"]).optional();
 

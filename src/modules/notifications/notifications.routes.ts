@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { notificationService, sendInput } from "./notification.service.js";
+import { notificationService } from "./notification.service.js";
+import { sendInput } from "./notifications.schema.js";
 
 export const notificationsRouter: Router = Router();
 

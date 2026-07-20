@@ -1,4 +1,3 @@
-import { z } from "zod";
 import { asc, desc, eq } from "drizzle-orm";
 import {
   workflowDefinitions,
@@ -12,20 +11,7 @@ import {
 import { currentTenant, withTenant } from "../../tenant/context.js";
 import { emit } from "../../events/outbox.js";
 import { HttpError } from "../../lib/http-error.js";
-
-export const defineInput = z.object({
-  key: z.string().min(1),
-  steps: z.array(z.object({ name: z.string().min(1), approverRole: z.string().min(1) })).min(1),
-});
-export const startInput = z.object({
-  key: z.string().min(1),
-  subjectRef: z.string().min(1),
-});
-export const decideInput = z.object({
-  taskId: z.string().uuid(),
-  decision: z.enum(["approve", "reject"]),
-  deciderId: z.string().uuid().optional(),
-});
+import type { DefineInput, StartInput, DecideInput } from "./workflow.schema.js";
 
 export const WORKFLOW_COMPLETED = "WorkflowCompleted";
 
@@ -61,7 +47,7 @@ export const workflowService = {
     });
   },
 
-  async define(input: z.infer<typeof defineInput>): Promise<void> {
+  async define(input: DefineInput): Promise<void> {
     const { schoolId } = currentTenant();
     await withTenant((tx) =>
       tx
@@ -75,7 +61,7 @@ export const workflowService = {
   },
 
   /** Starts an instance and opens the first approval task. */
-  async start(input: z.infer<typeof startInput>): Promise<{ instance: WorkflowInstance; task: WorkflowTask }> {
+  async start(input: StartInput): Promise<{ instance: WorkflowInstance; task: WorkflowTask }> {
     const { schoolId } = currentTenant();
     return withTenant(async (tx) => {
       const [def] = await tx
@@ -107,7 +93,7 @@ export const workflowService = {
    * step's task, or complete the instance if it was the last step. Reject →
    * complete immediately. Emits `WorkflowCompleted` when the instance finishes.
    */
-  async decide(input: z.infer<typeof decideInput>): Promise<WorkflowInstance> {
+  async decide(input: DecideInput): Promise<WorkflowInstance> {
     const { schoolId } = currentTenant();
     return withTenant(async (tx) => {
       const [task] = await tx.select().from(workflowTasks).where(eq(workflowTasks.id, input.taskId)).limit(1);

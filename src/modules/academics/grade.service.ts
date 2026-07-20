@@ -1,19 +1,10 @@
-import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { grades, type Grade } from "../../db/schema/grades.js";
 import { enrollments } from "../../db/schema/enrollments.js";
 import { persons } from "../../db/schema/persons.js";
 import { subjects } from "../../db/schema/subjects.js";
 import { currentTenant, withTenant } from "../../tenant/context.js";
-
-export const recordGradeInput = z.object({
-  studentId: z.string().uuid(),
-  subjectId: z.string().uuid(),
-  termId: z.string().uuid(),
-  caScore: z.number().int().min(0).max(100),
-  examScore: z.number().int().min(0).max(100),
-});
-export type RecordGradeInput = z.infer<typeof recordGradeInput>;
+import type { RecordGradeInput } from "./academics.schema.js";
 
 export const gradeService = {
   /** Upserts a student's score for a subject in a term (one row per triple). */

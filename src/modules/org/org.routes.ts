@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { schoolService } from "./school.service.js";
 import { billingService, isPaidPlan } from "./billing.service.js";
+import { checkoutPlanInput } from "./org.schema.js";
 
 /** Public org/school lookups — no auth (used by login pages). */
 export const publicOrgRouter: Router = Router();
@@ -33,7 +34,12 @@ orgRouter.get("/school", async (req, res, next) => {
 
 orgRouter.post("/billing/checkout", async (req, res, next) => {
   try {
-    const plan = String((req.body as Record<string, unknown> | undefined)?.plan ?? "");
+    const parsed = checkoutPlanInput.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(422).json({ error: "Validation failed", details: parsed.error.flatten() });
+      return;
+    }
+    const plan = parsed.data.plan;
     if (!isPaidPlan(plan)) {
       res.status(422).json({ error: `'${plan}' is not a purchasable plan` });
       return;

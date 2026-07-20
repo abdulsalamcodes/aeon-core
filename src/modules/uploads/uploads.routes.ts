@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { decodeDataUrl, isSupportedImageType, storageProvider } from "../../storage/index.js";
+import { presignInput, photoUploadInput } from "./uploads.schema.js";
 
 const PHOTO_PREFIX = "photos";
 
@@ -13,7 +14,12 @@ export const uploadsRouter: Router = Router();
 
 uploadsRouter.post("/photo/presign", async (req, res, next) => {
   try {
-    const contentType = String(req.body?.contentType ?? "");
+    const parsed = presignInput.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(422).json({ error: "Validation failed", details: parsed.error.flatten() });
+      return;
+    }
+    const contentType = parsed.data.contentType;
     if (!isSupportedImageType(contentType)) {
       res.status(422).json({ error: "Unsupported image type" });
       return;
@@ -32,12 +38,12 @@ uploadsRouter.post("/photo/presign", async (req, res, next) => {
 
 uploadsRouter.post("/photo", async (req, res, next) => {
   try {
-    const dataUrl = String(req.body?.dataUrl ?? "");
-    if (!dataUrl.startsWith("data:")) {
-      res.status(400).json({ error: "dataUrl is required" });
+    const parsed = photoUploadInput.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(422).json({ error: "Validation failed", details: parsed.error.flatten() });
       return;
     }
-    const url = await storageProvider().putImage(decodeDataUrl(dataUrl), PHOTO_PREFIX);
+    const url = await storageProvider().putImage(decodeDataUrl(parsed.data.dataUrl), PHOTO_PREFIX);
     res.status(201).json({ data: { url } });
   } catch (err) {
     next(err);
